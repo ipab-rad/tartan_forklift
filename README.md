@@ -9,24 +9,25 @@ Collection of tools to manage ROSbag recordings data from AV vehicle
 
  ```bash
     pip install mcap
-```
+ ```
 
 2. Running the Script
- To generate the metadata JSON file, follow these steps:
+To generate the metadata JSON file, follow these steps:
 
- Place all your MCAP files in a directory.
-
- Update the create_resources_json function call with the path to your directory:
-
- ```bash
-    create_resources_json('path/to/your/dataset/directory')
-```
- Run the script:
+Place all your MCAP files in a directory.
+The default directory is `/recorded_datasets/edinburgh`
+Run the script:
 
  ```bash
     python metadata_generator.py
-```
+ ```
+
+If you want to generate metadata for files in a specified path. 
+Run the script:
+ ```bash
+    python metadata_generator.py -p path/to/file
+ ```
 
 
 3. Output
- The script will generate a resources.json file in the specified directory. This JSON file will contain metadata for each MCAP file in the directory.
+The script will generate a resources.json file in the specified directory. This JSON file will contain metadata for each MCAP file in the directory.
