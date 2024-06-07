@@ -1,0 +1,84 @@
+{
+    "name": "dataset",
+    "resource:identifier": "Autonomous driving dataset",
+    "resource:description": "description of the dataset",
+    "resource:licence": "licence",
+    "resource:format": "e.g. MCAP",
+    "1.mcap": {
+        "name": "1.mcap",
+        "resource:identifier": "1",
+        "resource:description": "Rosbag MCAP log file",
+        "resource:format": "MCAP",
+        "resource:licence": "TODO",
+        "resource:size": 774,
+        "resource:hash": "49e3355d6bcd8aef6a180f6293f44d98",
+        "resource:issued": "2024-06-07",
+        "resource:modified": "2024-06-05",
+        "duration": "0s",
+        "topics": {
+            "sample_topic": 1
+        }
+    },
+    "2.mcap": {
+        "name": "2.mcap",
+        "resource:identifier": "2",
+        "resource:description": "Rosbag MCAP log file",
+        "resource:format": "MCAP",
+        "resource:licence": "TODO",
+        "resource:size": 960,
+        "resource:hash": "d86ea26e69696cd331c1df2b3c7542e5",
+        "resource:issued": "2024-06-07",
+        "resource:modified": "2024-06-06",
+        "duration": "0s",
+        "topics": {
+            "sample_topic": 10
+        }
+    },
+    "3.mcap": {
+        "name": "3.mcap",
+        "resource:identifier": "3",
+        "resource:description": "Rosbag MCAP log file",
+        "resource:format": "MCAP",
+        "resource:licence": "TODO",
+        "resource:size": 917,
+        "resource:hash": "81034fec2e7d572fef65c8683deca288",
+        "resource:issued": "2024-06-07",
+        "resource:modified": "2024-06-06",
+        "duration": "0s",
+        "topics": {
+            "complex_topic": 8
+        }
+    },
+    "4.mcap": {
+        "name": "4.mcap",
+        "resource:identifier": "4",
+        "resource:description": "Rosbag MCAP log file",
+        "resource:format": "MCAP",
+        "resource:licence": "TODO",
+        "resource:size": 1381,
+        "resource:hash": "b4c385094cac1a98ba9ad65d99f015f5",
+        "resource:issued": "2024-06-07",
+        "resource:modified": "2024-06-06",
+        "duration": "0s",
+        "topics": {
+            "sample_topic_1": 10,
+            "sample_topic_2": 10
+        }
+    },
+    "sub\5.mcap": {
+        "name": "5.mcap",
+        "resource:identifier": "5",
+        "resource:description": "Rosbag MCAP log file",
+        "resource:format": "MCAP",
+        "resource:licence": "TODO",
+        "resource:size": 2738,
+        "resource:hash": "6cd649655b6b28ec6037a98dc3d8c1fa",
+        "resource:issued": "2024-06-07",
+        "resource:modified": "2024-06-07",
+        "duration": "0s",
+        "topics": {
+            "sample_topic_1": 49,
+            "sample_topic_2": 49
+        }
+    }
+}
