@@ -3,7 +3,9 @@ import json
 import hashlib
 from datetime import datetime
 from mcap.reader import make_reader
+import argparse
 
+DEFAULT_PATH = '/recorded_datasets/edinburgh'
 
 def read_mcap_file(mcap_file_path):
     topic_message_counts = {}
@@ -82,4 +84,12 @@ def create_resources_json(directory):
         json.dump(resources, json_file, indent=4)
 
 
-create_resources_json('path/to/dataset/directory')
+def main():
+    parser = argparse.ArgumentParser(description='Generate metadata for Rosbag MCAP files.')
+    parser.add_argument('-p', type=str, default=DEFAULT_PATH, help='Path to the directory containing MCAP files')
+    
+    args = parser.parse_args()
+    create_resources_json(args.data_path)
+
+if __name__ == "__main__":
+    main()
