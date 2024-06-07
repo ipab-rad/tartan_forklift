@@ -3,7 +3,7 @@ Collection of tools to manage ROSbag recordings data from AV vehicle
 
 ## Metadata Generator Usage
 
-This script is used to generate metadata for ROSbag MCAP files. The metadata is compiled into a `resources.json` file that complies with the [EIDF requirements](https://github.com/marioa/eidf-docs/blob/data_ingest/docs/dataingest/ResourceMetaDataUserDoc.md)..
+This script is used to generate metadata for ROSbag MCAP files. The metadata is compiled into a `resources.json` file that complies with the [EIDF requirements](https://github.com/marioa/eidf-docs/blob/data_ingest/docs/dataingest/ResourceMetaDataUserDoc.md).
 
 ### Features
 - Reads MCAP files and extracts metadata such as:
@@ -24,14 +24,6 @@ This script is used to generate metadata for ROSbag MCAP files. The metadata is 
   - Modified date
   - Duration
   - Topics and message counts
-
-### Prerequisites
-
-Ensure all dependencies are installed. You can use the following command to install required packages:
-
-```bash
-pip install mcap
-```
 
 ### Usage
 
