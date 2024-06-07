@@ -54,7 +54,7 @@ def generate_metadata(file_path, root_dir):
         "resource:identifier": os.path.splitext(os.path.basename(file_path))[0],
         "resource:description": "Rosbag MCAP log file",
         "resource:format": "MCAP",
-        "resource:licence": "TODO",
+        "resource:licence": "cc-by-4.0",
         "resource:size": get_file_size(file_path),
         "resource:hash": get_file_hash(file_path),
         "resource:issued": datetime.now().strftime('%Y-%m-%d'),
@@ -69,8 +69,8 @@ def create_resources_json(directory):
         "name": "dataset",
         "resource:identifier": "Autonomous driving dataset",
         "resource:description": "description of the dataset",
-        "resource:licence": "licence",
-        "resource:format": "e.g. MCAP"
+        "resource:licence": "cc-by-4.0",
+        "resource:format": "MCAP"
     }
 
     for root, _, files in os.walk(directory):
@@ -89,7 +89,7 @@ def main():
     parser.add_argument('-p', type=str, default=DEFAULT_PATH, help='Path to the directory containing MCAP files')
     
     args = parser.parse_args()
-    create_resources_json(args.data_path)
+    create_resources_json(args.p)
 
 if __name__ == "__main__":
     main()
