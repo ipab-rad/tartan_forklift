@@ -19,7 +19,7 @@ def read_mcap_file(mcap_file_path):
     mcap_file_path (str): The path to the MCAP file.
 
     Returns:
-    dict: A dictionary containing the duration, topic message counts, and message types.
+    dict: A dictionary containing information.
     """
     topic_message_counts = {}
     topic_message_types = {}
@@ -43,7 +43,7 @@ def read_mcap_file(mcap_file_path):
     duration_seconds = duration / 1e9  # Convert nanoseconds to seconds
 
     result = {
-        'duration': f'{duration_seconds:.0f}s',
+        'duration': f'{duration_seconds: .0f}s',
         'topics': topic_message_counts,
         'types': topic_message_types,
     }
