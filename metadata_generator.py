@@ -41,7 +41,7 @@ def read_mcap_file(mcap_file_path):
     duration_seconds = duration / 1e9  # Convert nanoseconds to seconds
 
     result = {
-        'duration': f'{duration_seconds:.0f}s',
+        'duration': f'{duration_seconds: .0f}s',
         'topics': topic_message_counts,
     }
 
