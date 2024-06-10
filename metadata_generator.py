@@ -8,6 +8,15 @@ import argparse
 DEFAULT_PATH = '/recorded_datasets/edinburgh'
 
 def read_mcap_file(mcap_file_path):
+    """
+    Reads an MCAP file and extracts metadata such as duration and topic message counts.
+
+    Parameters:
+    mcap_file_path (str): The path to the MCAP file.
+
+    Returns:
+    dict: A dictionary containing the duration and topic message counts.
+    """
     topic_message_counts = {}
     start_time = None
     end_time = None
@@ -36,9 +45,27 @@ def read_mcap_file(mcap_file_path):
 
 
 def get_file_size(file_path):
+    """
+    Gets the size of a file.
+
+    Parameters:
+    file_path (str): The path to the file.
+
+    Returns:
+    int: The size of the file in bytes.
+    """
     return os.path.getsize(file_path)
 
 def get_file_hash(file_path):
+    """
+    Gets the size of a file.
+
+    Parameters:
+    file_path (str): The path to the file.
+
+    Returns:
+    int: The size of the file in bytes.
+    """
     hash_func = hashlib.md5()
     with open(file_path, 'rb') as f:
         while chunk := f.read(8192):
@@ -47,6 +74,16 @@ def get_file_hash(file_path):
 
 
 def generate_metadata(file_path, root_dir):
+    """
+    Generates metadata for an MCAP file.
+
+    Parameters:
+    file_path (str): The path to the MCAP file.
+    root_dir (str): The root directory for relative path calculation.
+
+    Returns:
+    tuple: A tuple containing the relative path and the metadata dictionary.
+    """
     relative_path = os.path.relpath(file_path, root_dir)
     mcap_info = read_mcap_file(file_path)
     metadata = {
@@ -65,6 +102,12 @@ def generate_metadata(file_path, root_dir):
     return relative_path, metadata
 
 def create_resources_json(directory):
+    """
+    Creates a JSON file containing metadata for all MCAP files in a directory.
+
+    Parameters:
+    directory (str): The directory to search for MCAP files.
+    """
     resources = {
         "name": "dataset",
         "resource:identifier": "Autonomous driving dataset",
