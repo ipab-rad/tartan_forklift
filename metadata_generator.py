@@ -36,7 +36,9 @@ def read_mcap_file(mcap_file_path):
             topic = channel.topic
             if topic not in topic_message_counts:
                 topic_message_counts[topic] = 0
-                topic_message_types[topic] = schema.name  # Store the message type
+                topic_message_types[topic] = (
+                    schema.name
+                )  # Store the message type
             topic_message_counts[topic] += 1
 
     duration = end_time - start_time
@@ -96,7 +98,9 @@ def generate_metadata(file_path, root_dir):
     mcap_info = read_mcap_file(file_path)
     metadata = {
         'name': os.path.basename(file_path),
-        'resource:identifier': os.path.splitext(os.path.basename(file_path))[0],
+        'resource:identifier': os.path.splitext(os.path.basename(file_path))[
+            0
+        ],
         'resource:description': 'Rosbag MCAP log file',
         'resource:format': 'MCAP',
         'resource:licence': 'cc-by-4.0',
