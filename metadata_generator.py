@@ -19,9 +19,10 @@ def read_mcap_file(mcap_file_path):
     mcap_file_path (str): The path to the MCAP file.
 
     Returns:
-    dict: A dictionary containing the duration and topic message counts.
+    dict: A dictionary containing the duration, topic message counts, and message types.
     """
     topic_message_counts = {}
+    topic_message_types = {}
     start_time = None
     end_time = None
 
@@ -35,14 +36,16 @@ def read_mcap_file(mcap_file_path):
             topic = channel.topic
             if topic not in topic_message_counts:
                 topic_message_counts[topic] = 0
+                topic_message_types[topic] = schema.name  # Store the message type
             topic_message_counts[topic] += 1
 
     duration = end_time - start_time
     duration_seconds = duration / 1e9  # Convert nanoseconds to seconds
 
     result = {
-        'duration': f'{duration_seconds: .0f}s',
+        'duration': f'{duration_seconds:.0f}s',
         'topics': topic_message_counts,
+        'types': topic_message_types,
     }
 
     return result
@@ -93,9 +96,7 @@ def generate_metadata(file_path, root_dir):
     mcap_info = read_mcap_file(file_path)
     metadata = {
         'name': os.path.basename(file_path),
-        'resource:identifier': os.path.splitext(os.path.basename(file_path))[
-            0
-        ],
+        'resource:identifier': os.path.splitext(os.path.basename(file_path))[0],
         'resource:description': 'Rosbag MCAP log file',
         'resource:format': 'MCAP',
         'resource:licence': 'cc-by-4.0',
@@ -107,6 +108,7 @@ def generate_metadata(file_path, root_dir):
         ).strftime('%Y-%m-%d'),
         'duration': mcap_info['duration'],
         'topics': mcap_info['topics'],
+        'types': mcap_info['types'],  # Include the message types
     }
     return relative_path, metadata
 
