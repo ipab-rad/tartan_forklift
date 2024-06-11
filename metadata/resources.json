@@ -12,11 +12,14 @@
         "resource:licence": "cc-by-4.0",
         "resource:size": 774,
         "resource:hash": "49e3355d6bcd8aef6a180f6293f44d98",
-        "resource:issued": "2024-06-07",
+        "resource:issued": "2024-06-10",
         "resource:modified": "2024-06-05",
         "duration": "0s",
         "topics": {
             "sample_topic": 1
+        },
+        "types": {
+            "sample_topic": "sample"
         }
     },
     "2.mcap": {
@@ -27,11 +30,14 @@
         "resource:licence": "cc-by-4.0",
         "resource:size": 960,
         "resource:hash": "d86ea26e69696cd331c1df2b3c7542e5",
-        "resource:issued": "2024-06-07",
+        "resource:issued": "2024-06-10",
         "resource:modified": "2024-06-06",
         "duration": "0s",
         "topics": {
             "sample_topic": 10
+        },
+        "types": {
+            "sample_topic": "sample"
         }
     },
     "3.mcap": {
@@ -42,11 +48,14 @@
         "resource:licence": "cc-by-4.0",
         "resource:size": 917,
         "resource:hash": "81034fec2e7d572fef65c8683deca288",
-        "resource:issued": "2024-06-07",
+        "resource:issued": "2024-06-10",
         "resource:modified": "2024-06-06",
         "duration": "0s",
         "topics": {
             "complex_topic": 8
+        },
+        "types": {
+            "complex_topic": "sample"
         }
     },
     "4.mcap": {
@@ -57,12 +66,16 @@
         "resource:licence": "cc-by-4.0",
         "resource:size": 1381,
         "resource:hash": "b4c385094cac1a98ba9ad65d99f015f5",
-        "resource:issued": "2024-06-07",
+        "resource:issued": "2024-06-10",
         "resource:modified": "2024-06-06",
         "duration": "0s",
         "topics": {
             "sample_topic_1": 10,
             "sample_topic_2": 10
+        },
+        "types": {
+            "sample_topic_1": "sample1",
+            "sample_topic_2": "sample2"
         }
     },
     "sub/5.mcap": {
@@ -73,12 +86,16 @@
         "resource:licence": "cc-by-4.0",
         "resource:size": 2738,
         "resource:hash": "6cd649655b6b28ec6037a98dc3d8c1fa",
-        "resource:issued": "2024-06-07",
+        "resource:issued": "2024-06-10",
         "resource:modified": "2024-06-07",
         "duration": "0s",
         "topics": {
             "sample_topic_1": 49,
             "sample_topic_2": 49
+        },
+        "types": {
+            "sample_topic_1": "sample1",
+            "sample_topic_2": "sample2"
         }
     }
 }
