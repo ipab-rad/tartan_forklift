@@ -5,10 +5,10 @@ import os
 
 import pandas as pd
 import pyarrow as pa
+import pyarrow.parquet as pq
 
 from mcap.reader import make_reader
 from tqdm import tqdm
-import pyarrow.parquet as pq
 
 def read_mcap(file_path):
     """
