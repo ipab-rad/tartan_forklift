@@ -86,4 +86,3 @@ python parquet-convertor.py <path_to_mcap_file> --compression <compression_metho
 ```
 <path_to_mcap_file>: Path to the input MCAP file.
 --compression <compression_method>: (Optional) Compression method to use for the Parquet file. Default is SNAPPY. Supported methods: SNAPPY, GZIP, BROTLI, LZ4, ZSTD.
-
