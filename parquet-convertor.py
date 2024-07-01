@@ -4,12 +4,13 @@ import argparse
 import os
 
 from mcap.reader import make_reader
-from tqdm import tqdm
 
 import pandas as pd
+
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from tqdm import tqdm
 
 
 def read_mcap(file_path):
@@ -23,16 +24,18 @@ def read_mcap(file_path):
     with open(file_path, 'rb') as f:
         reader = make_reader(f)
         messages = list(reader.iter_messages())
-        for schema, channel, message in tqdm(messages, desc='Reading MCAP file'):
+        for schema, channel, message in tqdm(
+            messages, desc='Reading MCAP file'
+        ):
             try:
                 data = message.data.decode('utf-8')
             except UnicodeDecodeError:
                 data = message.data  # Store as raw bytes if decoding fails
 
             row = {
-                'timestamp': message.log_time, # Assuming log_time as timestamp
+                'timestamp': message.log_time,
                 'channel': channel.topic,
-                'data': data
+                'data': data,
             }
             rows.append(row)
     return pd.DataFrame(rows)
@@ -52,18 +55,26 @@ def convert_mcap_to_parquet(mcap_file, compression_method):
     parquet_file = os.path.splitext(mcap_file)[0] + '.parquet'
 
     pq.write_table(table, parquet_file, compression=compression_method)
-    print(f'Converted {mcap_file} to {parquet_file} using {compression_method}')
+    print(
+        f'Converted {mcap_file} to {parquet_file} using {compression_method}'
+    )
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Convert MCAP file to Parquet format.')
-    parser.add_argument('mcap_file', type=str, help='Path to the input MCAP file.')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Convert MCAP file to Parquet format.'
+    )
     parser.add_argument(
-        '-compression', type=str, default='SNAPPY',
+        'mcap_file', type=str, help='Path to the input MCAP file.'
+    )
+    parser.add_argument(
+        '-compression',
+        type=str,
+        default='SNAPPY',
         help=(
             'Compression method to use for Parquet file '
             '(e.g., SNAPPY, GZIP, BROTLI, LZ4, ZSTD).'
-        )
+        ),
     )
 
     args = parser.parse_args()
