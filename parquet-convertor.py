@@ -5,9 +5,10 @@ import os
 
 import pandas as pd
 import pyarrow as pa
-import pyarrow.parquet as pq
+
 from mcap.reader import make_reader
 from tqdm import tqdm
+import pyarrow.parquet as pq
 
 def read_mcap(file_path):
     """
@@ -55,7 +56,10 @@ if __name__ == "__main__":
     parser.add_argument('mcap_file', type=str, help='Path to the input MCAP file.')
     parser.add_argument(
         '--compression', type=str, default='SNAPPY',
-        help='Compression method to use for Parquet file (e.g., SNAPPY, GZIP, BROTLI, LZ4, ZSTD).'
+        help=(
+            'Compression method to use for Parquet file '
+            '(e.g., SNAPPY, GZIP, BROTLI, LZ4, ZSTD).'
+        )
     )
     
     args = parser.parse_args()
