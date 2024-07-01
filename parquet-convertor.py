@@ -52,9 +52,7 @@ def convert_mcap_to_parquet(mcap_file, compression_method):
     parquet_file = os.path.splitext(mcap_file)[0] + '.parquet'
 
     pq.write_table(table, parquet_file, compression=compression_method)
-    print(f'Converted {mcap_file} to {parquet_file} 
-          using {compression_method} compression'
-          )
+    print(f'Converted {mcap_file} to {parquet_file} using {compression_method}')
 
 
 if __name__ == "__main__":
