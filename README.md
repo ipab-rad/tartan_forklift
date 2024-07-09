@@ -59,7 +59,7 @@ The script will generate a `resources.json` file in the specified directory. Thi
 
 ## Upload_vehicle_data usage
 
-#### 1.Configuration
+#### 1. Configuration
 
 Update the script with the correct paths and IP addresses:
 
@@ -67,7 +67,7 @@ Update the script with the correct paths and IP addresses:
   - remote_directory: The remote directory where the rosbags will be uploaded.
   - iperf_server_ip: The IP address of the iperf3 server.
 
-#### 2.Script Workflow:
+#### 2. Script Workflow:
 
 - The script measures the available bandwidth using iperf3.
 - Lists all .mcap files in the specified directory.
@@ -79,20 +79,20 @@ Update the script with the correct paths and IP addresses:
 - Removes the original and compressed files from the vehicle after successful upload and verification.
 - Logs the entire process, including any errors.
 
-#### 3.Script Parameters
+#### 3. Script Parameters
 - vehicle_directory: Directory containing the rosbags on the vehicle.
 - remote_directory: Remote server directory for the uploaded files.
 - iperf_server_ip: IP address of the iperf3 server.
 - max_parallel_compressions: Maximum number of parallel compressions (default is 4).
 
-#### 4.Logging 
+#### 4. Logging 
 The script logs its activity to upload_vehicle_data.log. This log file contains:
 
   - Information about the files processed.
   - Bandwidth measurements.
   - Any errors encountered during the process.
 
-#### 5.usage
+#### 5. usage
   ```bash
   python upload_vehicle_data.py
   ```
