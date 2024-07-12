@@ -204,7 +204,7 @@ def main(
             remote_user, remote_ip, remote_directory, password
         )
 
-        bandwidth_mbps = measure_bandwidth(remote_ip)
+        bandwidth_mbps = measure_bandwidth(remote_ip, remote_user, password)
         if bandwidth_mbps is None:
             print("Could not measure bandwidth. Exiting.")
             return
