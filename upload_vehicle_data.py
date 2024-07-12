@@ -56,7 +56,7 @@ def compress_and_transfer_rosbag(
         + ".zst"
     )
     mcap_path = '/home/linuxbrew/.linuxbrew/bin/mcap'
-    compress_cmd = f"{mcap_path} compress -o {rosbag_path} {remote_compressed_path}"
+    compress_cmd = f"{mcap_path} compress {rosbag_path} -o {remote_compressed_path}"
     try:
         run_ssh_command(remote_user, remote_ip, password, compress_cmd)
         logging.info(
