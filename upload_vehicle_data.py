@@ -172,7 +172,7 @@ def measure_bandwidth(remote_ip, remote_user, password):
         )
         for line in result.stdout.split('\n'):
             if "receiver" in line:
-                bandwidth_mbps = float(line.split()[-2])
+                bandwidth_mbps = float(line.split()[-3])
                 return bandwidth_mbps
     except subprocess.CalledProcessError as e:
         logging.error(f"iperf3 error: {e}")
