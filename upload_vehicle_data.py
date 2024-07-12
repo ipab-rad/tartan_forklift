@@ -53,7 +53,6 @@ def compress_and_transfer_rosbag(
     # Compress the rosbag on the remote machine
     remote_compressed_path = (
         os.path.join(remote_temp_directory, os.path.basename(rosbag_path))
-        + ".zst"
     )
     mcap_path = '/home/linuxbrew/.linuxbrew/bin/mcap'
     compress_cmd = f"{mcap_path} compress {rosbag_path} -o {remote_compressed_path}"
