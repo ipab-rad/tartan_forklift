@@ -59,17 +59,11 @@ The script will generate a `resources.json` file in the specified directory. Thi
 
 ## Upload_vehicle_data usage
 
-#### 1. Configuration
 
-Update the script with the correct paths and IP addresses:
-
-  - vehicle_directory: The directory on the vehicle where the rosbags are stored.
-  - remote_directory: The remote directory where the rosbags will be uploaded.
-  - iperf_server_ip: The IP address of the iperf3 server.
-
-#### 2. Script Workflow:
+### 1. Script Workflow:
 
 - The script measures the available bandwidth using iperf3.
+- Create the remote temporary directory.
 - Lists all .mcap files in the specified directory.
 - Displays the total number of files, their combined size, and the estimated upload time based on the measured bandwidth.
 - Prompts the user to confirm the upload.
@@ -79,23 +73,44 @@ Update the script with the correct paths and IP addresses:
 - Removes the original and compressed files from the vehicle after successful upload and verification.
 - Logs the entire process, including any errors.
 
-#### 3. Script Parameters
-- vehicle_directory: Directory containing the rosbags on the vehicle.
-- remote_directory: Remote server directory for the uploaded files.
-- iperf_server_ip: IP address of the iperf3 server.
-- max_parallel_compressions: Maximum number of parallel compressions (default is 4).
+### 2. Script Parameters
+- `remote_user` (str): Username for the remote machine.
+- `password (str)`: Password for SSH and rsync operations.
+- `remote_temp_directory` (str): Remote temporary directory for storing compressed files (default: /mnt/mydrive/rosbags/temp).
+- `iperf_server_ip` (str): IP address of the iperf3 server for bandwidth measurement (default: 129.215.117.104).
+- `remote_ip` (str): IP address of the remote machine (vehicle PC) (default: 129.215.117.104).
+- `remote_directory` (str): Directory on the remote machine containing rosbags (default: /mnt/mydrive/rosbags).
+- `vdi_upload_directory` (str): VDI directory for uploading compressed files (default: /mnt/vdb/data).
 
-#### 4. Logging 
+### 3. Logging
 The script logs its activity to upload_vehicle_data.log. This log file contains:
 
   - Information about the files processed.
   - Bandwidth measurements.
   - Any errors encountered during the process.
 
-#### 5. usage
+### 4. Usage
   ```bash
-  python upload_vehicle_data.py
+  upload_vehicle_data.py remote_user password
   ```
 
+### 5. Dependencies
 
 
+  ##### 1. VDI machine
+- sshpass: A non-interactive ssh password authentication tool.
+```bash
+sudo apt-get install sshpass
+```
+- iperf3: A tool for measuring bandwidth.
+```bash
+sudo apt-get install iperf3
+```
+#### 2. Remote machine
+- iperf3: A tool for measuring bandwidth.
+```bash
+sudo apt-get install iperf3
+```
+- MCAP cli: A tool for compressing rosbags
+
+  https://mcap.dev/guides/cli

@@ -1,8 +1,9 @@
-import subprocess
+"""This script automates the upload of rosbags from vehicle to VDI machine."""
+
+import argparse
 import logging
 import os
-from pathlib import Path
-import argparse
+import subprocess
 
 # Setup logging
 logging.basicConfig(
@@ -13,31 +14,31 @@ logging.basicConfig(
 
 
 def run_ssh_command(remote_user, remote_ip, password, command):
-    """Run a command on the remote machine using SSH"""
+    """Run a command on the remote machine using SSH."""
     ssh_command = (
         f"sshpass -p {password} ssh {remote_user}@{remote_ip} '{command}'"
     )
     try:
         subprocess.run(ssh_command, shell=True, check=True)
-        logging.info(f"Ran SSH command: {command}")
+        logging.info(f'Ran SSH command: {command}')
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to run SSH command: {command}: {e}")
+        logging.error(f'Failed to run SSH command: {command}: {e}')
         raise
 
 
 def create_remote_directory(
     remote_user, remote_ip, remote_temp_directory, password
 ):
-    """Create a directory on the remote machine"""
-    command = f"mkdir -p {remote_temp_directory}"
+    """Create a directory on the remote machine."""
+    command = f'mkdir -p {remote_temp_directory}'
     run_ssh_command(remote_user, remote_ip, password, command)
 
 
 def delete_remote_directory(
     remote_user, remote_ip, remote_temp_directory, password
 ):
-    """Delete a directory on the remote machine"""
-    command = f"rm -rf {remote_temp_directory}"
+    """Delete a directory on the remote machine."""
+    command = f'rm -rf {remote_temp_directory}'
     run_ssh_command(remote_user, remote_ip, password, command)
 
 
@@ -49,57 +50,64 @@ def compress_and_transfer_rosbag(
     vdi_upload_directory,
     password,
 ):
-    """Compress a single rosbag on the remote machine and transfer it to the VDI machine"""
+    """Compress rosbag on remote machine and transfer it to VDI machine."""
     # Compress the rosbag on the remote machine
-    remote_compressed_path = (
-        os.path.join(remote_temp_directory, os.path.basename(rosbag_path))
+    remote_compressed_path = os.path.join(
+        remote_temp_directory, os.path.basename(rosbag_path)
     )
     mcap_path = '/home/linuxbrew/.linuxbrew/bin/mcap'
-    compress_cmd = f"{mcap_path} compress {rosbag_path} -o {remote_compressed_path}"
+    compress_cmd = (
+        f'{mcap_path} compress {rosbag_path} -o {remote_compressed_path}'
+    )
     try:
         run_ssh_command(remote_user, remote_ip, password, compress_cmd)
         logging.info(
-            f"Compressed rosbag {rosbag_path} to {remote_compressed_path} on the remote machine."
+            f'Compressed rosbag {rosbag_path} to'
+            f'{remote_compressed_path} on the remote machine.'
         )
     except subprocess.CalledProcessError as e:
         logging.error(
-            f"Failed to compress rosbag {rosbag_path} on remote machine: {e}"
+            f'Failed to compress rosbag {rosbag_path} on remote machine: {e}'
         )
         return False
 
     # Transfer the compressed file to the VDI machine
     rsync_cmd = [
-        "sshpass",
-        "-p",
+        'sshpass',
+        '-p',
         password,
-        "rsync",
-        "-avz",
-        f"{remote_user}@{remote_ip}:{remote_compressed_path}",
+        'rsync',
+        '-avz',
+        f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         vdi_upload_directory,
     ]
     try:
         subprocess.run(rsync_cmd, check=True)
         logging.info(
-            f"Transferred compressed rosbag {remote_compressed_path} to the VDI machine at {vdi_upload_directory}."
+            f'Transferred compressed rosbag {remote_compressed_path}'
+            f'to the VDI machine at {vdi_upload_directory}.'
         )
     except subprocess.CalledProcessError as e:
         logging.error(
-            f"Failed to transfer compressed rosbag {remote_compressed_path} from remote machine: {e}"
+            f'Failed to transfer compressed rosbag'
+            f'{remote_compressed_path} from remote machine: {e}'
         )
         return False
 
     # Remove the compressed file from the remote machine
-    remove_remote_file_cmd = f"rm {remote_compressed_path}"
+    remove_remote_file_cmd = f'rm {remote_compressed_path}'
     try:
         run_ssh_command(
             remote_user, remote_ip, password, remove_remote_file_cmd
         )
         logging.info(
-            f'Removed compressed rosbag {remote_compressed_path} from the remote machine.'
+            f'Removed compressed rosbag {remote_compressed_path}'
+            f' from the remote machine.'
         )
     except subprocess.CalledProcessError as e:
         logging.error(
-            f"Failed to remove compressed rosbag {remote_compressed_path} from remote machine: {e}"
+            f'Failed to remove compressed rosbag'
+            f'{remote_compressed_path} from remote machine: {e}'
         )
         return False
 
@@ -109,11 +117,12 @@ def compress_and_transfer_rosbag(
 def get_remote_rosbags_list(
     remote_user, remote_ip, remote_directory, password
 ):
-    """Get a list of all rosbags on the remote machine"""
+    """Get a list of all rosbags on the remote machine."""
     list_cmd = f"find {remote_directory} -name '*.mcap'"
     try:
         result = subprocess.run(
-            f"sshpass -p {password} ssh {remote_user}@{remote_ip} '{list_cmd}'",
+            f'sshpass -p {password} ssh {remote_user}@{remote_ip}'
+            f"'{list_cmd}'",
             shell=True,
             capture_output=True,
             text=True,
@@ -121,66 +130,73 @@ def get_remote_rosbags_list(
         )
         rosbag_list = result.stdout.splitlines()
         logging.info(
-            f"Found {len(rosbag_list)} rosbags on the remote machine."
+            f'Found {len(rosbag_list)} rosbags on the remote machine.'
         )
         return rosbag_list
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to list rosbags on remote machine: {e}")
+        logging.error(f'Failed to list rosbags on remote machine: {e}')
         raise
 
 
 def get_remote_file_size(remote_user, remote_ip, file_path, password):
-    """Get the size of a remote file"""
-    size_cmd = f"stat -c%s {file_path}"
+    """Get the size of a remote file."""
+    size_cmd = f'stat -c%s {file_path}'
     try:
         result = subprocess.run(
-            f"sshpass -p {password} ssh {remote_user}@{remote_ip} '{size_cmd}'",
+            f'sshpass -p {password} ssh {remote_user}@{remote_ip}'
+            f"'{size_cmd}'",
             shell=True,
             capture_output=True,
             text=True,
             check=True,
         )
         file_size = int(result.stdout.strip())
-        logging.info(f"Size of file {file_path} is {file_size} bytes.")
+        logging.info(f'Size of file {file_path} is {file_size} bytes.')
         return file_size / (1024**3)  # Convert to GB
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to get size of remote file {file_path}: {e}")
+        logging.error(f'Failed to get size of remote file {file_path}: {e}')
         raise
 
 
 def get_estimated_upload_time(total_size_gb, bandwidth_mbps):
-    """Estimate upload time in hours"""
+    """Estimate upload time in hours."""
     bandwidth_mbs = bandwidth_mbps / 8  # Convert Mbps to MB/s
     total_size_mb = total_size_gb * 1024  # Convert GB to MB
     return total_size_mb / bandwidth_mbs / 3600  # Return time in hours
 
 
 def measure_bandwidth(remote_ip, remote_user, password):
-    """Measure the actual bandwidth using iperf3 between the VDI machine and the remote machine"""
+    """Measure bandwidth between VDI machine and remote machine."""
     try:
         # Start iperf3 server on the remote machine
-        server_cmd = f"sshpass -p {password} ssh {remote_user}@{remote_ip} 'iperf3 -s -D'"
+        server_cmd = (
+            f'sshpass -p {password} ssh {remote_user}@{remote_ip} '
+            f"'iperf3 -s -D'"
+        )
         subprocess.run(server_cmd, shell=True, check=True)
-        logging.info(f"Started iperf3 server on {remote_ip}")
+        logging.info(f'Started iperf3 server on {remote_ip}')
 
         # Run iperf3 client on the VDI machine
         result = subprocess.run(
-            ["iperf3", "-c", remote_ip, "-f", "m"],
+            ['iperf3', '-c', remote_ip, '-f', 'm'],
             capture_output=True,
             text=True,
             check=True,
         )
         for line in result.stdout.split('\n'):
-            if "receiver" in line:
+            if 'receiver' in line:
                 bandwidth_mbps = float(line.split()[-3])
                 return bandwidth_mbps
     except subprocess.CalledProcessError as e:
-        logging.error(f"iperf3 error: {e}")
+        logging.error(f'iperf3 error: {e}')
     finally:
         # Stop iperf3 server on the remote machine
-        stop_server_cmd = f"sshpass -p {password} ssh {remote_user}@{remote_ip} 'pkill iperf3'"
+        stop_server_cmd = (
+            f'sshpass -p {password} ssh {remote_user}@{remote_ip} '
+            f"'pkill iperf3'"
+        )
         subprocess.run(stop_server_cmd, shell=True)
-        logging.info(f"Stopped iperf3 server on {remote_ip}")
+        logging.info(f'Stopped iperf3 server on {remote_ip}')
     return None
 
 
@@ -193,6 +209,7 @@ def main(
     iperf_server_ip,
     password,
 ):
+    """Automate the upload of rosbags."""
     # Create the remote temporary directory
     create_remote_directory(
         remote_user, remote_ip, remote_temp_directory, password
@@ -206,7 +223,7 @@ def main(
 
         bandwidth_mbps = measure_bandwidth(remote_ip, remote_user, password)
         if bandwidth_mbps is None:
-            print("Could not measure bandwidth. Exiting.")
+            print('Could not measure bandwidth. Exiting.')
             return
 
         total_size_gb = sum(
@@ -218,20 +235,22 @@ def main(
         )
 
         print(
-            f"Found {len(rosbag_list)} files to upload with total size {total_size_gb:.2f} GB."
+            f'Found {len(rosbag_list)} files to upload with total size '
+            f'{total_size_gb:.2f} GB.'
         )
-        print(f"Measured bandwidth: {bandwidth_mbps:.2f} Mbps")
-        print(f"Estimated upload time: {estimated_time:.2f} hours.")
-        confirm = input("Do you want to proceed to upload? (yes/no): ")
+        print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
+        print(f'Estimated upload time: {estimated_time:.2f} hours.')
+        confirm = input('Do you want to proceed to upload? (yes/no): ')
 
         if confirm.lower() != 'yes':
-            print("Upload aborted.")
+            print('Upload aborted.')
             return
 
         logging.info(
-            f"Starting upload of {len(rosbag_list)} files with total size {total_size_gb:.2f} GB."
+            f'Starting upload of {len(rosbag_list)} files with total size '
+            f'{total_size_gb:.2f} GB.'
         )
-        logging.info(f"Measured bandwidth: {bandwidth_mbps:.2f} Mbps")
+        logging.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
 
         for rosbag in rosbag_list:
             success = compress_and_transfer_rosbag(
@@ -244,10 +263,10 @@ def main(
             )
             if not success:
                 logging.error(
-                    f"Failed to process {rosbag}. Continuing with next file."
+                    f'Failed to process {rosbag}. Continuing with next file.'
                 )
             else:
-                logging.info(f"Successfully processed {rosbag}.")
+                logging.info(f'Successfully processed {rosbag}.')
 
     finally:
         # Delete the remote temporary directory
@@ -256,42 +275,47 @@ def main(
         )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Automate the compression and upload of rosbags."
+        description='Automate the compression and upload of rosbags.'
     )
-    parser.add_argument("remote_user", help="Username for the remote machine")
+    parser.add_argument('remote_user', help='Username for the remote machine')
     parser.add_argument(
-        "password", help="Password for SSH and rsync operations"
-    )
-    parser.add_argument(
-        "-remote_temp_directory",
-        default="/mnt/mydrive/rosbags/temp",
-        help="Remote temporary directory for storing compressed files",
+        'password', help='Password for SSH and rsync operations'
     )
     parser.add_argument(
-        "-iperf_server_ip",
-        default="129.215.117.104",
-        help="IP address of the iperf3 server for bandwidth measurement",
+        '-remote_temp_directory',
+        default='/mnt/mydrive/rosbags/temp',
+        help='Remote temporary directory for storing compressed files',
     )
     parser.add_argument(
-        "-remote_ip",
-        default="129.215.117.104",
-        help="IP address of the remote machine (default: 129.215.117.104)",
+        '-iperf_server_ip',
+        default='129.215.117.104',
+        help='IP address of the iperf3 server for bandwidth measurement',
     )
     parser.add_argument(
-        "-remote_directory",
-        default="/mnt/mydrive/rosbags",
-        help="Directory on the remote machine containing rosbags (default: /mnt/mydrive/rosbags)",
+        '-remote_ip',
+        default='129.215.117.104',
+        help='IP address of the remote machine (default: 129.215.117.104)',
     )
     parser.add_argument(
-        "-vdi_upload_directory",
-        default="/mnt/vdb/data",
-        help="VDI directory for uploading compressed files (default: /mnt/vdb/data)",
+        '-remote_directory',
+        default='/mnt/mydrive/rosbags',
+        help=(
+            'Directory on the remote machine containing rosbags '
+            '(default: /mnt/mydrive/rosbags)'
+        ),
+    )
+    parser.add_argument(
+        '-vdi_upload_directory',
+        default='/mnt/vdb/data',
+        help=(
+            'VDI directory for uploading compressed files '
+            '(default: /mnt/vdb/data)'
+        ),
     )
 
     args = parser.parse_args()
-
     main(
         args.remote_user,
         args.remote_ip,
