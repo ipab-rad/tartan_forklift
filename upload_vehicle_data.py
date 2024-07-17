@@ -3,7 +3,10 @@
 import argparse
 import logging
 import os
+import shutil
 import subprocess
+
+import yaml
 
 # Setup logging
 logging.basicConfig(
@@ -13,11 +16,9 @@ logging.basicConfig(
 )
 
 
-def run_ssh_command(remote_user, remote_ip, password, command):
+def run_ssh_command(remote_user, remote_ip, command):
     """Run a command on the remote machine using SSH."""
-    ssh_command = (
-        f"sshpass -p {password} ssh {remote_user}@{remote_ip} '{command}'"
-    )
+    ssh_command = f"ssh {remote_user}@{remote_ip} '{command}'"
     try:
         subprocess.run(ssh_command, shell=True, check=True)
         logging.info(f'Ran SSH command: {command}')
@@ -26,20 +27,22 @@ def run_ssh_command(remote_user, remote_ip, password, command):
         raise
 
 
-def create_remote_directory(
-    remote_user, remote_ip, remote_temp_directory, password
-):
+def create_remote_directory(remote_user, remote_ip, remote_temp_directory):
     """Create a directory on the remote machine."""
     command = f'mkdir -p {remote_temp_directory}'
-    run_ssh_command(remote_user, remote_ip, password, command)
+    run_ssh_command(remote_user, remote_ip, command)
 
 
-def delete_remote_directory(
-    remote_user, remote_ip, remote_temp_directory, password
-):
+def delete_remote_directory(remote_user, remote_ip, remote_temp_directory):
     """Delete a directory on the remote machine."""
     command = f'rm -rf {remote_temp_directory}'
-    run_ssh_command(remote_user, remote_ip, password, command)
+    run_ssh_command(remote_user, remote_ip, command)
+
+
+def delete_remote_directory_contents(remote_user, remote_ip, remote_directory):
+    """Delete the contents of a directory on the remote machine."""
+    command = f'rm -rf {remote_directory}/*'
+    run_ssh_command(remote_user, remote_ip, command)
 
 
 def compress_and_transfer_rosbag(
@@ -48,9 +51,15 @@ def compress_and_transfer_rosbag(
     rosbag_path,
     remote_temp_directory,
     vdi_upload_directory,
-    password,
 ):
     """Compress rosbag on remote machine and transfer it to VDI machine."""
+    # Check available disk space before compression
+    if not check_disk_space(
+        remote_user, remote_ip, remote_temp_directory, rosbag_path
+    ):
+        logging.error(f'Insufficient disk space for compressing {rosbag_path}')
+        return False
+
     # Compress the rosbag on the remote machine
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
@@ -60,7 +69,7 @@ def compress_and_transfer_rosbag(
         f'{mcap_path} compress {rosbag_path} -o {remote_compressed_path}'
     )
     try:
-        run_ssh_command(remote_user, remote_ip, password, compress_cmd)
+        run_ssh_command(remote_user, remote_ip, compress_cmd)
         logging.info(
             f'Compressed rosbag {rosbag_path} to'
             f'{remote_compressed_path} on the remote machine.'
@@ -73,11 +82,9 @@ def compress_and_transfer_rosbag(
 
     # Transfer the compressed file to the VDI machine
     rsync_cmd = [
-        'sshpass',
-        '-p',
-        password,
         'rsync',
         '-avz',
+        '--checksum',
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         vdi_upload_directory,
     ]
@@ -97,9 +104,7 @@ def compress_and_transfer_rosbag(
     # Remove the compressed file from the remote machine
     remove_remote_file_cmd = f'rm {remote_compressed_path}'
     try:
-        run_ssh_command(
-            remote_user, remote_ip, password, remove_remote_file_cmd
-        )
+        run_ssh_command(remote_user, remote_ip, remove_remote_file_cmd)
         logging.info(
             f'Removed compressed rosbag {remote_compressed_path}'
             f' from the remote machine.'
@@ -114,15 +119,12 @@ def compress_and_transfer_rosbag(
     return True
 
 
-def get_remote_rosbags_list(
-    remote_user, remote_ip, remote_directory, password
-):
+def get_remote_rosbags_list(remote_user, remote_ip, remote_directory):
     """Get a list of all rosbags on the remote machine."""
     list_cmd = f"find {remote_directory} -name '*.mcap'"
     try:
         result = subprocess.run(
-            f'sshpass -p {password} ssh {remote_user}@{remote_ip}'
-            f"'{list_cmd}'",
+            f'ssh {remote_user}@{remote_ip}' f"'{list_cmd}'",
             shell=True,
             capture_output=True,
             text=True,
@@ -138,13 +140,12 @@ def get_remote_rosbags_list(
         raise
 
 
-def get_remote_file_size(remote_user, remote_ip, file_path, password):
+def get_remote_file_size(remote_user, remote_ip, file_path):
     """Get the size of a remote file."""
     size_cmd = f'stat -c%s {file_path}'
     try:
         result = subprocess.run(
-            f'sshpass -p {password} ssh {remote_user}@{remote_ip}'
-            f"'{size_cmd}'",
+            f'ssh {remote_user}@{remote_ip}' f"'{size_cmd}'",
             shell=True,
             capture_output=True,
             text=True,
@@ -165,14 +166,11 @@ def get_estimated_upload_time(total_size_gb, bandwidth_mbps):
     return total_size_mb / bandwidth_mbs / 3600  # Return time in hours
 
 
-def measure_bandwidth(remote_ip, remote_user, password):
+def measure_bandwidth(remote_ip, remote_user):
     """Measure bandwidth between VDI machine and remote machine."""
     try:
         # Start iperf3 server on the remote machine
-        server_cmd = (
-            f'sshpass -p {password} ssh {remote_user}@{remote_ip} '
-            f"'iperf3 -s -D'"
-        )
+        server_cmd = f'ssh {remote_user}@{remote_ip} ' f"'iperf3 -s -D'"
         subprocess.run(server_cmd, shell=True, check=True)
         logging.info(f'Started iperf3 server on {remote_ip}')
 
@@ -191,43 +189,73 @@ def measure_bandwidth(remote_ip, remote_user, password):
         logging.error(f'iperf3 error: {e}')
     finally:
         # Stop iperf3 server on the remote machine
-        stop_server_cmd = (
-            f'sshpass -p {password} ssh {remote_user}@{remote_ip} '
-            f"'pkill iperf3'"
-        )
+        stop_server_cmd = f'ssh {remote_user}@{remote_ip} ' f"'pkill iperf3'"
         subprocess.run(stop_server_cmd, shell=True)
         logging.info(f'Stopped iperf3 server on {remote_ip}')
     return None
 
 
-def main(
-    remote_user,
-    remote_ip,
-    remote_directory,
-    remote_temp_directory,
-    vdi_upload_directory,
-    iperf_server_ip,
-    password,
-):
-    """Automate the upload of rosbags."""
-    # Create the remote temporary directory
-    create_remote_directory(
-        remote_user, remote_ip, remote_temp_directory, password
+def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
+    """Check if there's enough disk space to compress the rosbag."""
+    stat = shutil.disk_usage(directory)
+    file_size = os.path.getsize(rosbag_path)
+    available_space = stat.free
+    if file_size > available_space:
+        # If no space, delete the oldest mcap file
+        delete_oldest_mcap(remote_user, remote_ip, directory)
+        stat = shutil.disk_usage(directory)
+    return file_size <= stat.free
+
+
+def delete_oldest_mcap(remote_user, remote_ip, directory):
+    """Delete the oldest mcap file in the directory."""
+    list_cmd = (
+        f"find {directory} -name '*.mcap' -type f -printf '%T+ %p\n' | sort | "
+        "head -n 1 | cut -d' ' -f2-"
     )
+    try:
+        result = subprocess.run(
+            f'ssh {remote_user}@{remote_ip} "{list_cmd}"',
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        oldest_file = result.stdout.strip()
+        if oldest_file:
+            delete_cmd = f'rm {oldest_file}'
+            run_ssh_command(remote_user, remote_ip, delete_cmd)
+            logging.info(f'Deleted oldest mcap file: {oldest_file}')
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to delete oldest mcap file: {e}')
+        raise
+
+
+def main(config):
+    """Automate the upload of rosbags."""
+    remote_user = config['remote_user']
+    remote_ip = config['remote_ip']
+    remote_directory = config['remote_directory']
+    remote_temp_directory = config['remote_temp_directory']
+    vdi_upload_directory = config['vdi_upload_directory']
+    # iperf_server_ip = config['iperf_server_ip']
+    clean_up = config['clean_up']
+    # Create the remote temporary directory
+    create_remote_directory(remote_user, remote_ip, remote_temp_directory)
 
     try:
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
-            remote_user, remote_ip, remote_directory, password
+            remote_user, remote_ip, remote_directory
         )
 
-        bandwidth_mbps = measure_bandwidth(remote_ip, remote_user, password)
+        bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
         if bandwidth_mbps is None:
             print('Could not measure bandwidth. Exiting.')
             return
 
         total_size_gb = sum(
-            get_remote_file_size(remote_user, remote_ip, rosbag, password)
+            get_remote_file_size(remote_user, remote_ip, rosbag)
             for rosbag in rosbag_list
         )
         estimated_time = get_estimated_upload_time(
@@ -259,7 +287,6 @@ def main(
                 rosbag,
                 remote_temp_directory,
                 vdi_upload_directory,
-                password,
             )
             if not success:
                 logging.error(
@@ -268,60 +295,28 @@ def main(
             else:
                 logging.info(f'Successfully processed {rosbag}.')
 
+        if clean_up:
+            delete_remote_directory_contents(
+                remote_user, remote_ip, remote_directory
+            )
+
     finally:
         # Delete the remote temporary directory
-        delete_remote_directory(
-            remote_user, remote_ip, remote_temp_directory, password
-        )
+        delete_remote_directory(remote_user, remote_ip, remote_temp_directory)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Automate the compression and upload of rosbags.'
     )
-    parser.add_argument('remote_user', help='Username for the remote machine')
     parser.add_argument(
-        'password', help='Password for SSH and rsync operations'
+        '-config',
+        default='vehicle_data_params.yaml',
+        help='Path to the YAML configuration file',
     )
-    parser.add_argument(
-        '-remote_temp_directory',
-        default='/mnt/mydrive/rosbags/temp',
-        help='Remote temporary directory for storing compressed files',
-    )
-    parser.add_argument(
-        '-iperf_server_ip',
-        default='129.215.117.104',
-        help='IP address of the iperf3 server for bandwidth measurement',
-    )
-    parser.add_argument(
-        '-remote_ip',
-        default='129.215.117.104',
-        help='IP address of the remote machine (default: 129.215.117.104)',
-    )
-    parser.add_argument(
-        '-remote_directory',
-        default='/mnt/mydrive/rosbags',
-        help=(
-            'Directory on the remote machine containing rosbags '
-            '(default: /mnt/mydrive/rosbags)'
-        ),
-    )
-    parser.add_argument(
-        '-vdi_upload_directory',
-        default='/mnt/vdb/data',
-        help=(
-            'VDI directory for uploading compressed files '
-            '(default: /mnt/vdb/data)'
-        ),
-    )
-
     args = parser.parse_args()
-    main(
-        args.remote_user,
-        args.remote_ip,
-        args.remote_directory,
-        args.remote_temp_directory,
-        args.vdi_upload_directory,
-        args.iperf_server_ip,
-        args.password,
-    )
+
+    with open(args.config) as file:
+        config = yaml.safe_load(file)
+
+    main(config)
