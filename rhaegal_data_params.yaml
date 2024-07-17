@@ -1,0 +1,6 @@
+remote_user: "your_remote_user"
+remote_temp_directory: "/mnt/mydrive/rosbags/temp"
+remote_ip: "129.215.117.104"
+remote_directory: "/mnt/mydrive/rosbags"
+vdi_upload_directory: "/mnt/vdb/data"
+clean_up: false
