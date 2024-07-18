@@ -1,9 +1,8 @@
-"""This script automates the upload of rosbags from vehicle to VDI machine."""
+"""This script automates the upload of rosbags from vehicle to cloud host."""
 
 import argparse
 import logging
 import os
-import shutil
 import subprocess
 
 import yaml
@@ -27,15 +26,15 @@ def run_ssh_command(remote_user, remote_ip, command):
         raise
 
 
-def create_remote_directory(remote_user, remote_ip, remote_temp_directory):
+def create_remote_directory(remote_user, remote_ip, remote_directory):
     """Create a directory on the remote machine."""
-    command = f'mkdir -p {remote_temp_directory}'
+    command = f'mkdir -p {remote_directory}/temp'
     run_ssh_command(remote_user, remote_ip, command)
 
 
-def delete_remote_directory(remote_user, remote_ip, remote_temp_directory):
+def delete_remote_directory(remote_user, remote_ip, remote_directory):
     """Delete a directory on the remote machine."""
-    command = f'rm -rf {remote_temp_directory}'
+    command = f'rm -rf {remote_directory}/temp'
     run_ssh_command(remote_user, remote_ip, command)
 
 
@@ -49,10 +48,11 @@ def compress_and_transfer_rosbag(
     remote_user,
     remote_ip,
     rosbag_path,
-    remote_temp_directory,
-    vdi_upload_directory,
+    remote_directory,
+    cloud_upload_directory,
 ):
-    """Compress rosbag on remote machine and transfer it to VDI machine."""
+    """Compress rosbag on remote machine and transfer it to cloud host."""
+    remote_temp_directory = f'{remote_directory}/temp'
     # Check available disk space before compression
     if not check_disk_space(
         remote_user, remote_ip, remote_temp_directory, rosbag_path
@@ -80,25 +80,37 @@ def compress_and_transfer_rosbag(
         )
         return False
 
-    # Transfer the compressed file to the VDI machine
+    # Transfer the compressed file to the cloud host
     rsync_cmd = [
         'rsync',
         '-avz',
         '--checksum',
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
-        vdi_upload_directory,
+        cloud_upload_directory,
     ]
     try:
         subprocess.run(rsync_cmd, check=True)
         logging.info(
             f'Transferred compressed rosbag {remote_compressed_path}'
-            f'to the VDI machine at {vdi_upload_directory}.'
+            f'to the cloud host at {cloud_upload_directory}.'
         )
     except subprocess.CalledProcessError as e:
         logging.error(
             f'Failed to transfer compressed rosbag'
-            f'{remote_compressed_path} from remote machine: {e}'
+            f'{remote_compressed_path} from remote machine: {e}. Retrying...'
         )
+        try:
+            subprocess.run(rsync_cmd, check=True)
+            logging.info(
+                f'Successfully retried and transferred compressed rosbag '
+                f'{remote_compressed_path} to the cloud host'
+                f'at {cloud_upload_directory}.'
+            )
+        except subprocess.CalledProcessError as e:
+            logging.error(
+                f'Retry failed to transfer compressed rosbag'
+                f'{remote_compressed_path} from remote machine: {e}'
+            )
         return False
 
     # Remove the compressed file from the remote machine
@@ -167,14 +179,14 @@ def get_estimated_upload_time(total_size_gb, bandwidth_mbps):
 
 
 def measure_bandwidth(remote_ip, remote_user):
-    """Measure bandwidth between VDI machine and remote machine."""
+    """Measure bandwidth between cloud host and remote machine."""
     try:
         # Start iperf3 server on the remote machine
         server_cmd = f'ssh {remote_user}@{remote_ip} ' f"'iperf3 -s -D'"
         subprocess.run(server_cmd, shell=True, check=True)
         logging.info(f'Started iperf3 server on {remote_ip}')
 
-        # Run iperf3 client on the VDI machine
+        # Run iperf3 client on the cloud host
         result = subprocess.run(
             ['iperf3', '-c', remote_ip, '-f', 'm'],
             capture_output=True,
@@ -196,15 +208,63 @@ def measure_bandwidth(remote_ip, remote_user):
 
 
 def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
-    """Check if there's enough disk space to compress the rosbag."""
-    stat = shutil.disk_usage(directory)
-    file_size = os.path.getsize(rosbag_path)
-    available_space = stat.free
+    """Check if there's enough disk space on the remote machine."""
+    # Get available disk space on the remote machine
+    disk_usage_cmd = (
+        f'ssh {remote_user}@{remote_ip} '
+        f"'df -P {directory} | tail -1 | awk \'{{print $4}}\''"
+    )
+    try:
+        result = subprocess.run(
+            disk_usage_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        available_space_kb = int(result.stdout.strip())
+        available_space = available_space_kb * 1024  # Convert to bytes
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to get disk space on remote machine: {e}')
+        raise
+
+    # Get the file size of the rosbag on the remote machine
+    file_size_cmd = f"ssh {remote_user}@{remote_ip} 'stat -c%s {rosbag_path}'"
+    try:
+        result = subprocess.run(
+            file_size_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        file_size = int(result.stdout.strip())
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to get file size on remote machine: {e}')
+        raise
+
+    # Check if there is enough space
     if file_size > available_space:
         # If no space, delete the oldest mcap file
         delete_oldest_mcap(remote_user, remote_ip, directory)
-        stat = shutil.disk_usage(directory)
-    return file_size <= stat.free
+        try:
+            result = subprocess.run(
+                disk_usage_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            available_space_kb = int(result.stdout.strip())
+            available_space = available_space_kb * 1024  # Convert to bytes
+        except subprocess.CalledProcessError as e:
+            logging.error(
+                f'Failed to get disk space on remote machine '
+                f'after deletion: {e}'
+            )
+            raise
+
+    return file_size <= available_space
 
 
 def delete_oldest_mcap(remote_user, remote_ip, directory):
@@ -236,12 +296,10 @@ def main(config):
     remote_user = config['remote_user']
     remote_ip = config['remote_ip']
     remote_directory = config['remote_directory']
-    remote_temp_directory = config['remote_temp_directory']
-    vdi_upload_directory = config['vdi_upload_directory']
-    # iperf_server_ip = config['iperf_server_ip']
+    cloud_upload_directory = config['cloud_upload_directory']
     clean_up = config['clean_up']
     # Create the remote temporary directory
-    create_remote_directory(remote_user, remote_ip, remote_temp_directory)
+    create_remote_directory(remote_user, remote_ip, remote_directory)
 
     try:
         # Get the list of rosbags from the remote machine
@@ -285,8 +343,8 @@ def main(config):
                 remote_user,
                 remote_ip,
                 rosbag,
-                remote_temp_directory,
-                vdi_upload_directory,
+                remote_directory,
+                cloud_upload_directory,
             )
             if not success:
                 logging.error(
@@ -302,7 +360,7 @@ def main(config):
 
     finally:
         # Delete the remote temporary directory
-        delete_remote_directory(remote_user, remote_ip, remote_temp_directory)
+        delete_remote_directory(remote_user, remote_ip, remote_directory)
 
 
 if __name__ == '__main__':
