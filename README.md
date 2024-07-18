@@ -3,7 +3,7 @@ Collection of tools to manage ROSbag recordings data from AV vehicle
 
 ## Metadata Generator Usage
 
-This script generates metadata for ROSbag MCAP files. The metadata is compiled into a `resources.json` file that complies with ...
+This script generates metadata for ROSbag MCAP files. The metadata is compiled into a `resources.json` file that complies with the EIDF requirements
 
 ### Features
 - Reads MCAP files and extracts metadata such as:
@@ -65,41 +65,8 @@ This script automates the upload of rosbags from a vehicle to a cloud infrastruc
 - Data Collection: The rosbags collected contain crucial data from various sensors on the vehicle, including LiDAR, cameras, and GPS. This data is essential for research and development in autonomous driving, enabling tasks such as sensor fusion, environment mapping, and behavior prediction.
 
 - Automation and Efficiency: Manually uploading large datasets can be time-consuming and prone to errors. This script automates the entire process, from compressing the rosbags to transferring them securely to the VDI machine. It also includes functionality to manage disk space efficiently on the remote machine.
-### 1. Script Workflow:
 
-- The script measures the available bandwidth using iperf3.
-- Create the remote temporary directory.
-- Lists all .mcap files in the specified directory.
-- Displays the total number of files, their combined size, and the estimated upload time based on the measured bandwidth.
-- Prompts the user to confirm the upload.
-- Compresses each .mcap file using mcap CLI with zstd level 2.
-- Uploads each compressed file to the remote server using rsync.
-- Verifies the integrity of the uploaded file.
-- Removes the original and compressed files from the vehicle after successful upload and verification.
-- Logs the entire process, including any errors.
-
-### 2. YAML Parameters
-- `remote_user` (str): Username for the remote machine.
-- `remote_temp_directory` (str): Remote temporary directory for storing compressed files (default: /mnt/mydrive/rosbags/temp).
-- `remote_ip` (str): IP address of the remote machine (vehicle PC) (default: 129.215.117.104).
-- `remote_directory` (str): Directory on the remote machine containing rosbags (default: /mnt/mydrive/rosbags).
-- `vdi_upload_directory` (str): VDI directory for uploading compressed files (default: /mnt/vdb/data).
-- `clean_up` (bool): Flag to delete the remote directory.
-
-### 3. Logging
-The script logs its activity to upload_vehicle_data.log. This log file contains:
-
-  - Information about the files processed.
-  - Bandwidth measurements.
-  - Any errors encountered during the process.
-
-### 4. Usage
-To run the script, use the following command:
-  ```bash
-  python upload_vehicle_data.py -config <path_to_yaml_config>
-  ```
-Replace <path_to_yaml_config> with the path to your YAML configuration file that contains the necessary parameters for the script.
-### 5. Dependencies
+### 1. Dependencies
 
 
   ##### 1. VDI machine
@@ -117,12 +84,46 @@ sudo apt-get install iperf3
    ssh-copy-id username@hostname_ip
    ```
 
-
 #### 2. Remote machine
 - iperf3: A tool for measuring bandwidth.
 ```bash
 sudo apt-get install iperf3
 ```
 - MCAP cli: A tool for compressing rosbags
+```bash
+wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64 && chmod +x mcap
+```
+### 2. Usage
+To run the script, use the following command:
+  ```bash
+  python upload_vehicle_data.py -config <path_to_yaml_config>
+  ```
+Replace <path_to_yaml_config> with the path to your YAML configuration file that contains the necessary parameters for the script.
 
-  https://mcap.dev/guides/cli
+### 3. YAML Parameters
+- `remote_user` (str): Username for the remote machine.
+- `remote_temp_directory` (str): Remote temporary directory for storing compressed files (default: /mnt/mydrive/rosbags/temp).
+- `remote_ip` (str): IP address of the remote machine (vehicle PC) (default: 129.215.117.104).
+- `remote_directory` (str): Directory on the remote machine containing rosbags (default: /mnt/mydrive/rosbags).
+- `vdi_upload_directory` (str): VDI directory for uploading compressed files (default: /mnt/vdb/data).
+- `clean_up` (bool): Flag to delete the remote directory.
+
+### 4. Script Workflow:
+- The script measures the available bandwidth using iperf3.
+- Create the remote temporary directory.
+- Lists all .mcap files in the specified directory.
+- Displays the total number of files, their combined size, and the estimated upload time based on the measured bandwidth.
+- Prompts the user to confirm the upload.
+- Compresses each .mcap file using mcap CLI with zstd level 2.
+- Uploads each compressed file to the remote server using rsync.
+- Verifies the integrity of the uploaded file.
+- Removes the original and compressed files from the vehicle after successful upload and verification.
+- Logs the entire process, including any errors.
+
+### 5. Logging
+The script logs its activity to upload_vehicle_data.log. This log file contains:
+
+  - Information about the files processed.
+  - Bandwidth measurements.
+  - Any errors encountered during the process.
+
