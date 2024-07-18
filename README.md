@@ -126,4 +126,3 @@ The script logs its activity to upload_vehicle_data.log. This log file contains:
   - Information about the files processed.
   - Bandwidth measurements.
   - Any errors encountered during the process.
-
