@@ -64,12 +64,12 @@ This script automates the upload of rosbags from a vehicle to a cloud infrastruc
 
 - Data Collection: The rosbags collected contain crucial data from various sensors on the vehicle, including LiDAR, cameras, and GPS. This data is essential for research and development in autonomous driving, enabling tasks such as sensor fusion, environment mapping, and behavior prediction.
 
-- Automation and Efficiency: Manually uploading large datasets can be time-consuming and prone to errors. This script automates the entire process, from compressing the rosbags to transferring them securely to the VDI machine. It also includes functionality to manage disk space efficiently on the remote machine.
+- Automation and Efficiency: Manually uploading large datasets can be time-consuming and prone to errors. This script automates the entire process, from compressing the rosbags to transferring them securely to the remote host machine. It also includes functionality to manage disk space efficiently on the remote machine.
 
 ### 1. Dependencies
 
 
-  ##### 1. VDI machine
+  ##### 1. Remote host machine
 - iperf3: A tool for measuring bandwidth.
 ```bash
 sudo apt-get install iperf3
@@ -102,10 +102,9 @@ Replace <path_to_yaml_config> with the path to your YAML configuration file that
 
 ### 3. YAML Parameters
 - `remote_user` (str): Username for the remote machine.
-- `remote_temp_directory` (str): Remote temporary directory for storing compressed files (default: /mnt/mydrive/rosbags/temp).
 - `remote_ip` (str): IP address of the remote machine (vehicle PC) (default: 129.215.117.104).
 - `remote_directory` (str): Directory on the remote machine containing rosbags (default: /mnt/mydrive/rosbags).
-- `vdi_upload_directory` (str): VDI directory for uploading compressed files (default: /mnt/vdb/data).
+- `cloud_upload_directory` (str): remote host directory for uploading compressed files (default: /mnt/vdb/data).
 - `clean_up` (bool): Flag to delete the remote directory.
 
 ### 4. Script Workflow:
