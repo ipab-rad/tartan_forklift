@@ -104,8 +104,10 @@ Replace <path_to_yaml_config> with the path to your YAML configuration file that
 - `remote_user` (str): Username for the remote machine.
 - `remote_ip` (str): IP address of the remote machine (vehicle PC) (default: 129.215.117.104).
 - `remote_directory` (str): Directory on the remote machine containing rosbags (default: /mnt/mydrive/rosbags).
-- `cloud_upload_directory` (str): remote host directory for uploading compressed files (default: /mnt/vdb/data).
-- `clean_up` (bool): Flag to delete the remote directory.
+- `cloud_upload_directory` (str): Remote host directory for uploading compressed files (default: /mnt/vdb/data).
+- `clean_up ` (bool): Whether or not to delete all rosbags from the vehicle machine after uploading
+- `upload_attempts` (int): The number of attempts the script should make to upload each rosbag file to the cloud host. If not specified, the default value is `3`.
+
 
 ### 4. Script Workflow:
 - The script measures the available bandwidth using iperf3.

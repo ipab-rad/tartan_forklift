@@ -4,3 +4,4 @@ remote_ip: "129.215.117.104"
 remote_directory: "/mnt/mydrive/rosbags"
 cloud_upload_directory: "/mnt/vdb/data"
 clean_up: false
+upload_attempts: 3

@@ -50,6 +50,7 @@ def compress_and_transfer_rosbag(
     rosbag_path,
     remote_directory,
     cloud_upload_directory,
+    max_upload_attempts,
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
@@ -88,29 +89,32 @@ def compress_and_transfer_rosbag(
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         cloud_upload_directory,
     ]
-    try:
-        subprocess.run(rsync_cmd, check=True)
-        logging.info(
-            f'Transferred compressed rosbag {remote_compressed_path}'
-            f'to the cloud host at {cloud_upload_directory}.'
-        )
-    except subprocess.CalledProcessError as e:
-        logging.error(
-            f'Failed to transfer compressed rosbag'
-            f'{remote_compressed_path} from remote machine: {e}. Retrying...'
-        )
+    success = False
+    attempts = 0
+    while attempts < max_upload_attempts:
         try:
             subprocess.run(rsync_cmd, check=True)
             logging.info(
-                f'Successfully retried and transferred compressed rosbag '
-                f'{remote_compressed_path} to the cloud host'
-                f'at {cloud_upload_directory}.'
+                f'Transferred compressed rosbag {remote_compressed_path} '
+                f'to the cloud host at {cloud_upload_directory}.'
             )
+            success = True
+            break
         except subprocess.CalledProcessError as e:
+            attempts += 1
             logging.error(
-                f'Retry failed to transfer compressed rosbag'
-                f'{remote_compressed_path} from remote machine: {e}'
+                f'Failed to transfer compressed rosbag'
+                f'{remote_compressed_path} '
+                f'from remote machine: {e}. '
+                f'Attempt {attempts} of {max_upload_attempts}. Retrying...'
             )
+
+    if not success:
+        logging.error(
+            f'All {max_upload_attempts} attempts to'
+            f' transfer compressed rosbag '
+            f'{remote_compressed_path} from remote machine have failed.'
+        )
         return False
 
     # Remove the compressed file from the remote machine
@@ -298,6 +302,9 @@ def main(config):
     remote_directory = config['remote_directory']
     cloud_upload_directory = config['cloud_upload_directory']
     clean_up = config['clean_up']
+    max_upload_attempts = config.get(
+        'upload_attempts', 3
+    )  # Default to 3 if not specified
     # Create the remote temporary directory
     create_remote_directory(remote_user, remote_ip, remote_directory)
 
@@ -338,6 +345,8 @@ def main(config):
         )
         logging.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
 
+        successfully_uploaded_files = []
+
         for rosbag in rosbag_list:
             success = compress_and_transfer_rosbag(
                 remote_user,
@@ -345,18 +354,26 @@ def main(config):
                 rosbag,
                 remote_directory,
                 cloud_upload_directory,
+                max_upload_attempts,
             )
             if not success:
                 logging.error(
                     f'Failed to process {rosbag}. Continuing with next file.'
                 )
             else:
+                successfully_uploaded_files.append(rosbag)
                 logging.info(f'Successfully processed {rosbag}.')
 
         if clean_up:
             delete_remote_directory_contents(
                 remote_user, remote_ip, remote_directory
             )
+        else:
+            for rosbag in rosbag_list:
+                if rosbag not in successfully_uploaded_files:
+                    delete_remote_directory_contents(
+                        remote_user, remote_ip, remote_directory
+                    )
 
     finally:
         # Delete the remote temporary directory
