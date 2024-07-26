@@ -216,7 +216,7 @@ def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
     # Get available disk space on the remote machine
     disk_usage_cmd = (
         f'ssh {remote_user}@{remote_ip} '
-        f"'df -P {directory} | tail -1 | awk \'{{print $4}}\''"
+        f"'df -P {directory} | tail -1 | awk '{{print $4}}'"
     )
     try:
         result = subprocess.run(
