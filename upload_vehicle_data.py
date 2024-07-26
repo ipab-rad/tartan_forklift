@@ -295,6 +295,12 @@ def delete_oldest_mcap(remote_user, remote_ip, directory):
         raise
 
 
+def delete_remote_file(remote_user, remote_ip, file_path):
+    """Delete a specific file on the remote machine."""
+    command = f'rm {file_path}'
+    run_ssh_command(remote_user, remote_ip, command)
+
+
 def main(config):
     """Automate the upload of rosbags."""
     remote_user = config['remote_user']
@@ -365,15 +371,9 @@ def main(config):
                 logging.info(f'Successfully processed {rosbag}.')
 
         if clean_up:
-            delete_remote_directory_contents(
-                remote_user, remote_ip, remote_directory
-            )
-        else:
-            for rosbag in rosbag_list:
-                if rosbag not in successfully_uploaded_files:
-                    delete_remote_directory_contents(
-                        remote_user, remote_ip, remote_directory
-                    )
+            # Only delete rosbag files that were successfully uploaded
+            for rosbag in successfully_uploaded_files:
+                delete_remote_file(remote_user, remote_ip, rosbag)
 
     finally:
         # Delete the remote temporary directory
