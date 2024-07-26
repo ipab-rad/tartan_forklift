@@ -140,7 +140,7 @@ def get_remote_rosbags_list(remote_user, remote_ip, remote_directory):
     list_cmd = f"find {remote_directory} -name '*.mcap'"
     try:
         result = subprocess.run(
-            f'ssh {remote_user}@{remote_ip}' f"'{list_cmd}'",
+            f'ssh {remote_user}@{remote_ip} ' f"'{list_cmd}'",
             shell=True,
             capture_output=True,
             text=True,
@@ -161,7 +161,7 @@ def get_remote_file_size(remote_user, remote_ip, file_path):
     size_cmd = f'stat -c%s {file_path}'
     try:
         result = subprocess.run(
-            f'ssh {remote_user}@{remote_ip}' f"'{size_cmd}'",
+            f'ssh {remote_user}@{remote_ip} ' f"'{size_cmd}'",
             shell=True,
             capture_output=True,
             text=True,
