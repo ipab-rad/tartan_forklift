@@ -91,7 +91,7 @@ sudo apt-get install iperf3
 ```
 - MCAP cli: A tool for compressing rosbags
 ```bash
-wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64 && chmod +x mcap
+wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64 && chmod +x $HOME/mcap
 ```
 ### 2. Usage
 To run the script, use the following command:
