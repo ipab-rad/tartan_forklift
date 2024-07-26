@@ -32,7 +32,7 @@ def create_remote_directory(remote_user, remote_ip, remote_directory):
     run_ssh_command(remote_user, remote_ip, command)
 
 
-def delete_remote_directory(remote_user, remote_ip, remote_directory):
+def delete_remote_temp_directory(remote_user, remote_ip, remote_directory):
     """Delete a directory on the remote machine."""
     command = f'rm -rf {remote_directory}/temp'
     run_ssh_command(remote_user, remote_ip, command)
@@ -400,7 +400,7 @@ def main(config):
 
     finally:
         # Delete the remote temporary directory
-        delete_remote_directory(remote_user, remote_ip, remote_directory)
+        delete_remote_temp_directory(remote_user, remote_ip, remote_directory)
 
 
 if __name__ == '__main__':
