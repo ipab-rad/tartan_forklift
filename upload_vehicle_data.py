@@ -216,7 +216,7 @@ def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
     # Get available disk space on the remote machine
     disk_usage_cmd = (
         f'ssh {remote_user}@{remote_ip} '
-        f"'df -P {directory} | tail -1 | awk '{{print $4}}'"
+        f"\"stat -f --format='%a * %S' {directory} | bc\""
     )
     try:
         result = subprocess.run(
@@ -226,8 +226,8 @@ def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
             text=True,
             check=True,
         )
-        available_space_kb = int(result.stdout.strip())
-        available_space = available_space_kb * 1024  # Convert to bytes
+        available_space = int(result.stdout.strip())
+
     except subprocess.CalledProcessError as e:
         logging.error(f'Failed to get disk space on remote machine: {e}')
         raise
@@ -259,8 +259,8 @@ def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
                 text=True,
                 check=True,
             )
-            available_space_kb = int(result.stdout.strip())
-            available_space = available_space_kb * 1024  # Convert to bytes
+            available_space = int(result.stdout.strip())  # Space in bytes
+
         except subprocess.CalledProcessError as e:
             logging.error(
                 f'Failed to get disk space on remote machine '
