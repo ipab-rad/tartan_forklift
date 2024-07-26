@@ -44,6 +44,28 @@ def delete_remote_directory_contents(remote_user, remote_ip, remote_directory):
     run_ssh_command(remote_user, remote_ip, command)
 
 
+def get_remote_home_directory(remote_user, remote_ip):
+    """Get the home directory of the remote user."""
+    home_dir_cmd = f'ssh {remote_user}@{remote_ip} "eval echo ~$USER"'
+    try:
+        result = subprocess.run(
+            home_dir_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        remote_home_directory = result.stdout.strip()
+        logging.info(
+            f'Remote home directory for {remote_user} '
+            f'is {remote_home_directory}'
+        )
+        return remote_home_directory
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to get remote home directory: {e}')
+        raise
+
+
 def compress_and_transfer_rosbag(
     remote_user,
     remote_ip,
@@ -65,7 +87,8 @@ def compress_and_transfer_rosbag(
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
     )
-    mcap_path = os.path.join(os.getenv('HOME'), 'mcap')
+    remote_home_directory = get_remote_home_directory(remote_user, remote_ip)
+    mcap_path = os.path.join(remote_home_directory, 'mcap')
     compress_cmd = (
         f'{mcap_path} compress {rosbag_path} -o {remote_compressed_path}'
     )
