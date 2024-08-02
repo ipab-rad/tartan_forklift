@@ -199,11 +199,22 @@ def get_remote_file_size(remote_user, remote_ip, file_path):
         raise
 
 
-def get_estimated_upload_time(total_size_gb, bandwidth_mbps):
-    """Estimate upload time in hours."""
+def get_estimated_compression_time(file_sizes):
+    """Estimate compression time in hours based on file sizes."""
+    compression_speed_mbps = 400  # Compression speed in MB/s for zstd level 2
+    total_compression_time = sum(
+        size / compression_speed_mbps / 3600 for size in file_sizes
+    )  # Total compression time in hours
+    return total_compression_time
+
+
+def get_estimated_upload_time(total_size_gb, bandwidth_mbps, file_sizes):
+    """Estimate upload time in hours, including compression time."""
+    compression_time = get_estimated_compression_time(file_sizes)
     bandwidth_mbs = bandwidth_mbps / 8  # Convert Mbps to MB/s
     total_size_mb = total_size_gb * 1024  # Convert GB to MB
-    return total_size_mb / bandwidth_mbs / 3600  # Return time in hours
+    upload_time = total_size_mb / bandwidth_mbs / 3600  # Upload time in hours
+    return upload_time + compression_time  # Total time including compression
 
 
 def measure_bandwidth(remote_ip, remote_user):
@@ -355,12 +366,13 @@ def main(config):
             print('Could not measure bandwidth. Exiting.')
             return
 
-        total_size_gb = sum(
+        rosbag_sizes = [
             get_remote_file_size(remote_user, remote_ip, rosbag)
             for rosbag in rosbag_list
-        )
+        ]
+        total_size_gb = sum(rosbag_sizes)
         estimated_time = get_estimated_upload_time(
-            total_size_gb, bandwidth_mbps
+            total_size_gb, bandwidth_mbps, rosbag_sizes
         )
 
         print(
@@ -368,7 +380,10 @@ def main(config):
             f'{total_size_gb:.2f} GB.'
         )
         print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
-        print(f'Estimated upload time: {estimated_time:.2f} hours.')
+        print(
+            f'Estimated total time (including compression) is at least: '
+            f'{estimated_time:.2f} hours.'
+        )
         confirm = input('Do you want to proceed to upload? (yes/no): ')
 
         if confirm.lower() != 'yes':
