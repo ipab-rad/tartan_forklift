@@ -4,8 +4,10 @@ import argparse
 import logging
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import yaml
+
 
 # Setup logging
 logging.basicConfig(
@@ -72,6 +74,7 @@ def compress_and_transfer_rosbag(
     rosbag_path,
     remote_directory,
     cloud_upload_directory,
+    mcap_path,
     max_upload_attempts,
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
@@ -87,8 +90,6 @@ def compress_and_transfer_rosbag(
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
     )
-    remote_home_directory = get_remote_home_directory(remote_user, remote_ip)
-    mcap_path = os.path.join(remote_home_directory, 'mcap')
     compress_cmd = (
         f'{mcap_path} compress {rosbag_path} -o {remote_compressed_path}'
     )
@@ -334,6 +335,12 @@ def main(config):
     max_upload_attempts = config.get(
         'upload_attempts', 3
     )  # Default to 3 if not specified
+    mcap_path = config.get(
+        'mcap_path', 'mcap'
+    )  # Default to 'mcap' if not specified
+    parallel_processes = config.get(
+        'parallel_processes', 1
+    )  # Default to 1 if not specified
     # Create the remote temporary directory
     create_remote_directory(remote_user, remote_ip, remote_directory)
 
@@ -376,22 +383,26 @@ def main(config):
 
         successfully_uploaded_files = []
 
-        for rosbag in rosbag_list:
-            success = compress_and_transfer_rosbag(
-                remote_user,
-                remote_ip,
-                rosbag,
-                remote_directory,
-                cloud_upload_directory,
-                max_upload_attempts,
-            )
-            if not success:
-                logging.error(
-                    f'Failed to process {rosbag}. Continuing with next file.'
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=parallel_processes) as executor:
+            futures = [
+                executor.submit(
+                    compress_and_transfer_rosbag,
+                    remote_user,
+                    remote_ip,
+                    rosbag,
+                    remote_directory,
+                    cloud_upload_directory,
+                    mcap_path,
+                    max_upload_attempts,
                 )
-            else:
-                successfully_uploaded_files.append(rosbag)
-                logging.info(f'Successfully processed {rosbag}.')
+                for rosbag in rosbag_list
+            ]
+
+            for future in futures:
+                result = future.result()
+                if result:
+                    successfully_uploaded_files.append(result)
 
         if clean_up:
             # Only delete rosbag files that were successfully uploaded
@@ -408,7 +419,8 @@ if __name__ == '__main__':
         description='Automate the compression and upload of rosbags.'
     )
     parser.add_argument(
-        '-config',
+        '-c',
+        '--config',
         default='vehicle_data_params.yaml',
         help='Path to the YAML configuration file',
     )

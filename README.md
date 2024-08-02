@@ -96,7 +96,11 @@ wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2
 ### 2. Usage
 To run the script, use the following command:
   ```bash
-  python upload_vehicle_data.py -config <path_to_yaml_config>
+  python3 upload_vehicle_data.py -config <path_to_yaml_config>
+  ```
+  or
+  ```bash
+  python3 upload_vehicle_data.py -c <path_to_yaml_config>
   ```
 Replace <path_to_yaml_config> with the path to your YAML configuration file that contains the necessary parameters for the script.
 
@@ -107,6 +111,21 @@ Replace <path_to_yaml_config> with the path to your YAML configuration file that
 - `cloud_upload_directory` (str): Remote host directory for uploading compressed files (default: /mnt/vdb/data).
 - `clean_up ` (bool): Whether or not to delete all rosbags from the vehicle machine after uploading
 - `upload_attempts` (int): The number of attempts the script should make to upload each rosbag file to the cloud host. If not specified, the default value is `3`.
+- `mcap_path` (str): The binary path for the mcap cli. Can be found using `which mcap` if mcap is correctly installed.
+- `parallel_processes`: The number of parallel processes to use for compression and upload.
+YAML file example:
+```bash
+remote_user: "user namee"
+remote_temp_directory: "/mnt/mydrive/rosbags/temp"
+remote_ip: "129.215.117.104"
+remote_directory: "/mnt/mydrive/rosbags"
+cloud_upload_directory: "/mnt/vdb/data"
+clean_up: false
+upload_attempts: 3
+mcap_path: "Home/mcap"
+parallel_processes: 1
+
+```
 
 
 ### 4. Script Workflow:
