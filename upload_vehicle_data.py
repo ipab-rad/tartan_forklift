@@ -336,6 +336,56 @@ def delete_remote_file(remote_user, remote_ip, file_path):
     run_ssh_command(remote_user, remote_ip, command)
 
 
+def find_metadata_file(remote_user, remote_ip, remote_directory):
+    """Find the metadata.yaml file on the remote machine."""
+    find_cmd = f"find {remote_directory} -name 'metadata.yaml'"
+    try:
+        result = subprocess.run(
+            f'ssh {remote_user}@{remote_ip} ' f"'{find_cmd}'",
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        metadata_files = result.stdout.splitlines()
+        if metadata_files:
+            logging.info(f'Found metadata.yaml file at {metadata_files[0]}.')
+            return metadata_files[0]
+        else:
+            logging.error('metadata.yaml file not found.')
+            return None
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to find metadata.yaml file: {e}')
+        raise
+
+
+def copy_metadata_file(
+    remote_user, remote_ip, metadata_path, cloud_upload_directory
+):
+    """Copy metadata.yaml file from remote machine to cloud host."""
+    rsync_cmd = [
+        'rsync',
+        '-avz',
+        '--checksum',
+        f'{remote_user}@{remote_ip}:{metadata_path}',
+        cloud_upload_directory,
+    ]
+    try:
+        subprocess.run(rsync_cmd, check=True)
+        logging.info(f'Copied metadata.yaml to {cloud_upload_directory}.')
+        return True
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to copy metadata.yaml: {e}')
+        return False
+
+
+def read_metadata(metadata_path):
+    """Read the metadata.yaml file and return its contents."""
+    with open(metadata_path) as file:
+        metadata = yaml.safe_load(file)
+    return metadata
+
+
 def main(config):
     """Automate the upload of rosbags."""
     remote_user = config['remote_user']
@@ -352,14 +402,42 @@ def main(config):
     parallel_processes = config.get(
         'parallel_processes', 1
     )  # Default to 1 if not specified
+
     # Create the remote temporary directory
     create_remote_directory(remote_user, remote_ip, remote_directory)
 
     try:
+        # Find and copy the metadata.yaml file
+        metadata_path = find_metadata_file(
+            remote_user, remote_ip, remote_directory
+        )
+        if metadata_path is None:
+            print('metadata.yaml file not found. Exiting.')
+            return
+        if not copy_metadata_file(
+            remote_user, remote_ip, metadata_path, cloud_upload_directory
+        ):
+            print('Failed to copy metadata.yaml. Exiting.')
+            return
+
+        # Read the metadata.yaml file
+        local_metadata_path = os.path.join(
+            cloud_upload_directory, 'metadata.yaml'
+        )
+        metadata = read_metadata(local_metadata_path)
+        expected_bags = metadata.get('expected_bags', [])
+
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
             remote_user, remote_ip, remote_directory
         )
+
+        if len(rosbag_list) != len(expected_bags):
+            print(
+                'The number of rosbags does not match the metadata. Exiting.'
+            )
+            logging.error('The number of rosbags does not match the metadata.')
+            return
 
         bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
         if bandwidth_mbps is None:
