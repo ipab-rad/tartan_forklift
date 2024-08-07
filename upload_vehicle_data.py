@@ -108,8 +108,10 @@ def compress_and_transfer_rosbag(
     # Transfer the compressed file to the cloud host
     rsync_cmd = [
         'rsync',
-        '-avz',
+        '-av',
         '--checksum',
+        '--progress',
+        '--stats',
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         cloud_upload_directory,
     ]
@@ -365,8 +367,10 @@ def copy_metadata_file(
     """Copy metadata.yaml file from remote machine to cloud host."""
     rsync_cmd = [
         'rsync',
-        '-avz',
+        '-av',
         '--checksum',
+        '--progress',
+        '--stats',
         f'{remote_user}@{remote_ip}:{metadata_path}',
         cloud_upload_directory,
     ]
@@ -386,23 +390,10 @@ def read_metadata(metadata_path):
     return metadata
 
 
-def main(config):
-    """Automate the upload of rosbags."""
-    remote_user = config['remote_user']
-    remote_ip = config['remote_ip']
-    remote_directory = config['remote_directory']
-    cloud_upload_directory = config['cloud_upload_directory']
-    clean_up = config['clean_up']
-    max_upload_attempts = config.get(
-        'upload_attempts', 3
-    )  # Default to 3 if not specified
-    mcap_path = config.get(
-        'mcap_path', 'mcap'
-    )  # Default to 'mcap' if not specified
-    parallel_processes = config.get(
-        'parallel_processes', 1
-    )  # Default to 1 if not specified
-
+def process_directory(
+    remote_user, remote_ip, remote_directory, cloud_upload_directory, config
+):
+    """Process each directory."""
     # Create the remote temporary directory
     create_remote_directory(remote_user, remote_ip, remote_directory)
 
@@ -412,13 +403,18 @@ def main(config):
             remote_user, remote_ip, remote_directory
         )
         if metadata_path is None:
-            print('metadata.yaml file not found. Exiting.')
-            return
+            print(
+                'metadata.yaml file not found in {remote_directory}. Skipping.'
+            )
+
         if not copy_metadata_file(
             remote_user, remote_ip, metadata_path, cloud_upload_directory
         ):
-            print('Failed to copy metadata.yaml. Exiting.')
-            return
+            print(
+                'Failed to copy metadata.yaml from '
+                '{remote_directory}. '
+                'Skipping.'
+            )
 
         # Read the metadata.yaml file
         local_metadata_path = os.path.join(
@@ -434,14 +430,14 @@ def main(config):
 
         if len(rosbag_list) != len(expected_bags):
             print(
-                'The number of rosbags does not match the metadata. Exiting.'
+                'The number of rosbags does not match the metadata. Skipping.'
             )
             logging.error('The number of rosbags does not match the metadata.')
             return
 
         bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
         if bandwidth_mbps is None:
-            print('Could not measure bandwidth. Exiting.')
+            print('Could not measure bandwidth. Skipping.')
             return
 
         rosbag_sizes = [
@@ -453,6 +449,11 @@ def main(config):
             total_size_gb, bandwidth_mbps, rosbag_sizes
         )
 
+        if estimated_time < 1:
+            estimated_time_str = f'{estimated_time * 60:.2f} minutes'
+        else:
+            estimated_time_str = f'{estimated_time:.2f} hours'
+
         print(
             f'Found {len(rosbag_list)} files to upload with total size '
             f'{total_size_gb:.2f} GB.'
@@ -460,24 +461,21 @@ def main(config):
         print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
         print(
             f'Estimated total time (including compression) is at least: '
-            f'{estimated_time:.2f} hours.'
+            f'{estimated_time_str}.'
         )
-        confirm = input('Do you want to proceed to upload? (yes/no): ')
-
-        if confirm.lower() != 'yes':
-            print('Upload aborted.')
-            return
 
         logging.info(
             f'Starting upload of {len(rosbag_list)} files with total size '
-            f'{total_size_gb:.2f} GB.'
+            f'{total_size_gb:.2f} GB from {remote_directory}.'
         )
         logging.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
 
         successfully_uploaded_files = []
 
         # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(max_workers=parallel_processes) as executor:
+        with ThreadPoolExecutor(
+            max_workers=config['parallel_processes']
+        ) as executor:
             futures = [
                 executor.submit(
                     compress_and_transfer_rosbag,
@@ -486,8 +484,8 @@ def main(config):
                     rosbag,
                     remote_directory,
                     cloud_upload_directory,
-                    mcap_path,
-                    max_upload_attempts,
+                    config['mcap_path'],
+                    config['upload_attempts'],
                 )
                 for rosbag in rosbag_list
             ]
@@ -497,7 +495,7 @@ def main(config):
                 if result:
                     successfully_uploaded_files.append(result)
 
-        if clean_up:
+        if config['clean_up']:
             # Only delete rosbag files that were successfully uploaded
             for rosbag in successfully_uploaded_files:
                 delete_remote_file(remote_user, remote_ip, rosbag)
@@ -505,6 +503,98 @@ def main(config):
     finally:
         # Delete the remote temporary directory
         delete_remote_temp_directory(remote_user, remote_ip, remote_directory)
+
+
+def main(config):
+    """Automate the upload of rosbags."""
+    remote_user = config['remote_user']
+    remote_ip = config['remote_ip']
+    base_remote_directory = config['remote_directory']
+    cloud_upload_directory = config['cloud_upload_directory']
+
+    # Get all subdirectories in the base remote directory
+    list_cmd = (
+        f'ssh {remote_user}@{remote_ip} '
+        f'"find {base_remote_directory} -maxdepth 1 -mindepth 1 -type d"'
+    )
+    try:
+        result = subprocess.run(
+            list_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        subdirectories = result.stdout.splitlines()
+    except subprocess.CalledProcessError as e:
+        logging.error(
+            f'Failed to list subdirectories in {base_remote_directory}: {e}'
+        )
+        return
+
+    total_rosbags = 0
+    total_size_gb = 0.0
+    total_estimated_time = 0.0
+    bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
+
+    if bandwidth_mbps is None:
+        print('Could not measure bandwidth. Exiting.')
+        return
+
+    # Compute total estimated time for all subdirectories
+    for subdirectory in subdirectories:
+        # Get the list of rosbags from the remote machine
+        rosbag_list = get_remote_rosbags_list(
+            remote_user, remote_ip, subdirectory
+        )
+
+        # Get the size of each rosbag
+        rosbag_sizes = [
+            get_remote_file_size(remote_user, remote_ip, rosbag)
+            for rosbag in rosbag_list
+        ]
+        total_rosbags += len(rosbag_list)
+        total_size_gb += sum(rosbag_sizes)
+        total_estimated_time += get_estimated_upload_time(
+            sum(rosbag_sizes), bandwidth_mbps, rosbag_sizes
+        )
+
+    if total_estimated_time < 1:
+        estimated_time_str = f'{total_estimated_time * 60:.2f} minutes'
+    else:
+        estimated_time_str = f'{total_estimated_time:.2f} hours'
+
+    print(
+        f'Found {total_rosbags} files to upload with total size '
+        f'{total_size_gb:.2f} GB.'
+    )
+    print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
+    print(
+        f'Estimated total time (including compression) for '
+        f'all subdirectories is at least: '
+        f'{estimated_time_str}'
+    )
+    confirm = input('Do you want to proceed to upload? (yes/no): ')
+
+    if confirm.lower() != 'yes':
+        print('Upload aborted.')
+        return
+
+    logging.info(
+        f'Starting upload of {total_rosbags} files with total size '
+        f'{total_size_gb:.2f} GB.'
+    )
+    logging.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
+
+    # Process each subdirectory
+    for subdirectory in subdirectories:
+        process_directory(
+            remote_user,
+            remote_ip,
+            subdirectory,
+            cloud_upload_directory,
+            config,
+        )
 
 
 if __name__ == '__main__':
