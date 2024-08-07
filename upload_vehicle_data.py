@@ -182,6 +182,35 @@ def get_remote_rosbags_list(remote_user, remote_ip, remote_directory):
         raise
 
 
+def list_remote_directories(
+    remote_user, remote_ip, base_remote_directory, depth
+):
+    """List directories on the remote machine up to a given depth."""
+    list_cmd = (
+        f'ssh {remote_user}@{remote_ip} '
+        f'"find {base_remote_directory} -maxdepth {depth} -mindepth 1 -type d"'
+    )
+    try:
+        result = subprocess.run(
+            list_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        subdirectories = result.stdout.splitlines()
+        logging.info(
+            f'Listed directories up to depth {depth} in '
+            f'{base_remote_directory}'
+        )
+        return subdirectories
+    except subprocess.CalledProcessError as e:
+        logging.error(
+            f'Failed to list subdirectories in {base_remote_directory}: {e}'
+        )
+        return []
+
+
 def get_remote_file_size(remote_user, remote_ip, file_path):
     """Get the size of a remote file."""
     size_cmd = f'stat -c%s {file_path}'
@@ -203,7 +232,7 @@ def get_remote_file_size(remote_user, remote_ip, file_path):
 
 def get_estimated_compression_time(file_sizes):
     """Estimate compression time in hours based on file sizes."""
-    compression_speed_mbps = 400  # Compression speed in MB/s for zstd level 2
+    compression_speed_mbps = 120  # Compression speed in MB/s for zstd level 2
     total_compression_time = sum(
         size / compression_speed_mbps / 3600 for size in file_sizes
     )  # Total compression time in hours
@@ -511,26 +540,14 @@ def main(config):
     remote_ip = config['remote_ip']
     base_remote_directory = config['remote_directory']
     cloud_upload_directory = config['cloud_upload_directory']
+    directory_depth = config[
+        'directory_depth', 1
+    ]  # Default to 1 for flat structure
 
     # Get all subdirectories in the base remote directory
-    list_cmd = (
-        f'ssh {remote_user}@{remote_ip} '
-        f'"find {base_remote_directory} -maxdepth 1 -mindepth 1 -type d"'
+    subdirectories = list_remote_directories(
+        remote_user, remote_ip, base_remote_directory, directory_depth
     )
-    try:
-        result = subprocess.run(
-            list_cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        subdirectories = result.stdout.splitlines()
-    except subprocess.CalledProcessError as e:
-        logging.error(
-            f'Failed to list subdirectories in {base_remote_directory}: {e}'
-        )
-        return
 
     total_rosbags = 0
     total_size_gb = 0.0
