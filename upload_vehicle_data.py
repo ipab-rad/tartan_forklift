@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import yaml
@@ -277,47 +278,17 @@ def measure_bandwidth(remote_ip, remote_user):
     return None
 
 
-def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
+def check_disk_space(
+    remote_user, remote_ip, directory, rosbag_path, retries=3, delay=5
+):
     """Check if there's enough disk space on the remote machine."""
-    # Get available disk space on the remote machine
-    disk_usage_cmd = (
-        f'ssh {remote_user}@{remote_ip} '
-        f"\"stat -f --format='%a * %S' {directory} | bc\""
-    )
-    try:
-        result = subprocess.run(
-            disk_usage_cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        available_space = int(result.stdout.strip())
-
-    except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to get disk space on remote machine: {e}')
-        raise
-
-    # Get the file size of the rosbag on the remote machine
-    file_size_cmd = f"ssh {remote_user}@{remote_ip} 'stat -c%s {rosbag_path}'"
-    try:
-        result = subprocess.run(
-            file_size_cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        file_size = int(result.stdout.strip())
-    except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to get file size on remote machine: {e}')
-        raise
-
-    # Check if there is enough space
-    if file_size > available_space:
-        # If no space, delete the oldest mcap file
-        delete_oldest_mcap(remote_user, remote_ip, directory)
+    for attempt in range(retries):
         try:
+            # Get available disk space on the remote machine
+            disk_usage_cmd = (
+                f'ssh {remote_user}@{remote_ip} '
+                f"\"stat -f --format='%a * %S' {directory} | bc\""
+            )
             result = subprocess.run(
                 disk_usage_cmd,
                 shell=True,
@@ -325,16 +296,46 @@ def check_disk_space(remote_user, remote_ip, directory, rosbag_path):
                 text=True,
                 check=True,
             )
-            available_space = int(result.stdout.strip())  # Space in bytes
+            available_space = int(result.stdout.strip())
+            logging.info(f'Available space: {available_space} bytes.')
+
+            # Get the file size of the rosbag on the remote machine
+            file_size_cmd = (
+                f"ssh {remote_user}@{remote_ip} 'stat -c%s {rosbag_path}'"
+            )
+            result = subprocess.run(
+                file_size_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            file_size = int(result.stdout.strip())
+            logging.info(f'File size: {file_size} bytes.')
+
+            # Check if there is enough space
+            if file_size <= available_space:
+                return True
+            else:
+                logging.warning(
+                    f'Insufficient disk space for {rosbag_path}. '
+                    f'Attempting to free up space.'
+                )
+                # If no space, delete the oldest mcap file
+                delete_oldest_mcap(remote_user, remote_ip, directory)
 
         except subprocess.CalledProcessError as e:
             logging.error(
-                f'Failed to get disk space on remote machine '
-                f'after deletion: {e}'
+                f'Attempt {attempt + 1} - '
+                f'Failed to check disk space on remote machine: {e}'
             )
-            raise
 
-    return file_size <= available_space
+        if attempt < retries - 1:
+            logging.info(f'Retrying in {delay} seconds...')
+            time.sleep(delay)
+
+    logging.error('Failed to check disk space after multiple attempts.')
+    return False
 
 
 def delete_oldest_mcap(remote_user, remote_ip, directory):
