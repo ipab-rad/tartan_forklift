@@ -534,15 +534,15 @@ def process_directory(
         delete_remote_temp_directory(remote_user, remote_ip, remote_directory)
 
 
-def main(config):
+def main(config, debug):
     """Automate the upload of rosbags."""
     remote_user = config['remote_user']
     remote_ip = config['remote_ip']
     base_remote_directory = config['remote_directory']
     cloud_upload_directory = config['cloud_upload_directory']
-    directory_depth = config[
+    directory_depth = config.get(
         'directory_depth', 1
-    ]  # Default to 1 for flat structure
+    )  # Default to 1 for flat structure
 
     # Get all subdirectories in the base remote directory
     subdirectories = list_remote_directories(
@@ -581,16 +581,19 @@ def main(config):
     else:
         estimated_time_str = f'{total_estimated_time:.2f} hours'
 
-    print(
-        f'Found {total_rosbags} files to upload with total size '
-        f'{total_size_gb:.2f} GB.'
-    )
-    print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
-    print(
-        f'Estimated total time (including compression) for '
-        f'all subdirectories is at least: '
-        f'{estimated_time_str}'
-    )
+    if debug:
+        print(
+            f'Found {total_rosbags} files to upload with total size '
+            f'{total_size_gb:.2f} GB.'
+        )
+        print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
+        print(
+            f'Estimated total time (including compression) for '
+            f'all subdirectories is at least: '
+            f'{estimated_time_str}'
+        )
+        print(f'Subdirectories to be processed: {subdirectories}')
+
     confirm = input('Do you want to proceed to upload? (yes/no): ')
 
     if confirm.lower() != 'yes':
@@ -624,9 +627,15 @@ if __name__ == '__main__':
         default='vehicle_data_params.yaml',
         help='Path to the YAML configuration file',
     )
+    parser.add_argument(
+        '-d',
+        '--debug',
+        action='store_true',
+        help='Enable debugging prints',
+    )
     args = parser.parse_args()
 
     with open(args.config) as file:
         config = yaml.safe_load(file)
 
-    main(config)
+    main(config, args.debug)

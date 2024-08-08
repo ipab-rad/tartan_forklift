@@ -102,7 +102,10 @@ To run the script, use the following command:
   ```bash
   python3 upload_vehicle_data.py -c <path_to_yaml_config>
   ```
-Replace <path_to_yaml_config> with the path to your YAML configuration file that contains the necessary parameters for the script.
+Replace <path_to_yaml_config> with the path to your YAML configuration file that contains the necessary parameters for the script. use `-d` or `--debug` option to enable detailed information.
+  ```bash
+  python3 upload_vehicle_data.py -c <path_to_yaml_config> -d
+  ```
 
 ### 3. YAML Parameters
 - `remote_user` (str): Username for the remote machine.
@@ -113,10 +116,10 @@ Replace <path_to_yaml_config> with the path to your YAML configuration file that
 - `upload_attempts` (int): The number of attempts the script should make to upload each rosbag file to the cloud host. If not specified, the default value is `3`.
 - `mcap_path` (str): The binary path for the mcap cli. Can be found using `which mcap` if mcap is correctly installed.
 - `parallel_processes`: The number of parallel processes to use for compression and upload.
+- `directory_depth`: The depth of subdirectories to search for rosbags in the base remote directory. This controls how deep the script will look for rosbags within nested directories.
 YAML file example:
 ```bash
 remote_user: "user namee"
-remote_temp_directory: "/mnt/mydrive/rosbags/temp"
 remote_ip: "129.215.117.104"
 remote_directory: "/mnt/mydrive/rosbags"
 cloud_upload_directory: "/mnt/vdb/data"
@@ -124,7 +127,7 @@ clean_up: false
 upload_attempts: 3
 mcap_path: "Home/mcap"
 parallel_processes: 1
-
+directory_depth: 1
 ```
 
 
