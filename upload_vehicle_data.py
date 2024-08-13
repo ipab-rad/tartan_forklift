@@ -453,7 +453,7 @@ def process_directory(
             cloud_upload_directory, 'metadata.yaml'
         )
         metadata = read_metadata(local_metadata_path)
-        expected_bags = metadata.get('expected_bags', [])
+        expected_bags = metadata.get('relative_file_paths', [])
 
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
