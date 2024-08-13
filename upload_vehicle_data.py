@@ -595,7 +595,9 @@ def main(config, debug):
             f'all subdirectories is at least: '
             f'{estimated_time_str}'
         )
-        print(f'Subdirectories to be processed: {subdirectories}')
+        for bag_path in subdirectories:
+            print(f'Subdirectories to be processed: {bag_path}')
+        print()
 
     confirm = input('Do you want to proceed to upload? (yes/no): ')
 

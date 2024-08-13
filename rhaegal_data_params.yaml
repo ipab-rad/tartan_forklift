@@ -1,7 +1,7 @@
 remote_user: "shikai"
 remote_ip: "129.215.117.104"
-remote_directory: "/mnt/mydrive/rosbags"
-cloud_upload_directory: "/mnt/vdb/data"
+remote_directory: "/mnt/mydrive/rosbags/upload_test"
+cloud_upload_directory: "/mnt/vdb/data/upload_test"
 clean_up: false
 upload_attempts: 3
 mcap_path: "Home/mcap"
