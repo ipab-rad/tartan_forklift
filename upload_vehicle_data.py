@@ -113,6 +113,7 @@ def compress_and_transfer_rosbag(
         '--checksum',
         '--progress',
         '--stats',
+        '--relative',
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         cloud_upload_directory,
     ]
@@ -401,6 +402,7 @@ def copy_metadata_file(
         '--checksum',
         '--progress',
         '--stats',
+        '--relative',
         f'{remote_user}@{remote_ip}:{metadata_path}',
         cloud_upload_directory,
     ]
