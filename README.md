@@ -91,7 +91,7 @@ sudo apt-get install iperf3
 ```
 - MCAP cli: A tool for compressing rosbags
 ```bash
-wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64 && chmod +x $HOME/mcap
+wget -O /home/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64 && chmod +x $HOME/mcap
 ```
 ### 2. Usage
 To run the script, use the following command:
@@ -119,7 +119,7 @@ Replace <path_to_yaml_config> with the path to your YAML configuration file that
 - `directory_depth`: The depth of subdirectories to search for rosbags in the base remote directory. This controls how deep the script will look for rosbags within nested directories.
 YAML file example:
 ```bash
-remote_user: "user namee"
+remote_user: "user name"
 remote_ip: "129.215.117.104"
 remote_directory: "/mnt/mydrive/rosbags"
 cloud_upload_directory: "/mnt/vdb/data"
