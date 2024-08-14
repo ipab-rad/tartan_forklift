@@ -81,6 +81,7 @@ def compress_and_transfer_rosbag(
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
     relative_bag_path = os.path.relpath(rosbag_path, start=remote_directory)
+    print(f'relative_bag_path: {relative_bag_path}')
     # Check available disk space before compression
     if not check_disk_space(
         remote_user, remote_ip, remote_temp_directory, rosbag_path
@@ -117,6 +118,11 @@ def compress_and_transfer_rosbag(
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         os.path.join(cloud_upload_directory, relative_bag_path),
     ]
+
+    print(
+        f'cloud_upload_directory:'
+        f'{os.path.join(cloud_upload_directory, relative_bag_path),}'
+    )
     success = False
     attempts = 0
     while attempts < max_upload_attempts:
