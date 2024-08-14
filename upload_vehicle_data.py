@@ -81,11 +81,9 @@ def compress_and_transfer_rosbag(
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
-    print(f'rosbag_path: {rosbag_path}')
     relative_bag_path = os.path.relpath(
         rosbag_path, start=base_remote_directory
     )
-    print(f'relative_bag_path: {relative_bag_path}')
     # Check available disk space before compression
     if not check_disk_space(
         remote_user, remote_ip, remote_temp_directory, rosbag_path
@@ -123,10 +121,6 @@ def compress_and_transfer_rosbag(
         os.path.join(cloud_upload_directory, relative_bag_path),
     ]
 
-    print(
-        f'cloud_upload_directory:'
-        f'{os.path.join(cloud_upload_directory, relative_bag_path),}'
-    )
     success = False
     attempts = 0
     while attempts < max_upload_attempts:
@@ -413,8 +407,6 @@ def copy_metadata_file(
     relative_metadata_path = os.path.relpath(
         metadata_path, start=remote_directory
     )
-    print(f'metadata_path: {metadata_path}')
-    print(f'relative_metadata_path: {relative_metadata_path}')
     rsync_cmd = [
         'rsync',
         '-av',
@@ -505,8 +497,6 @@ def process_directory(
         expected_bags = metadata.get('rosbag2_bagfile_information', {}).get(
             'relative_file_paths', None
         )
-        print(f'Expected bags: {expected_bags}')
-        print(f'len(expected_bags): {len(expected_bags)}')
 
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
@@ -649,8 +639,9 @@ def main(config, debug):
             f'all subdirectories is at least: '
             f'{estimated_time_str}'
         )
+        print('Rosbags directories to be processed:')
         for bag_path in subdirectories:
-            print(f'Subdirectories to be processed: {bag_path}')
+            print(f'{bag_path}')
         print()
 
     confirm = input('Do you want to proceed to upload? (yes/no): ')
