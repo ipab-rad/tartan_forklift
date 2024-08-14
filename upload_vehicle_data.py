@@ -77,11 +77,14 @@ def compress_and_transfer_rosbag(
     cloud_upload_directory,
     mcap_path,
     max_upload_attempts,
+    base_remote_directory,
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
     print(f'rosbag_path: {rosbag_path}')
-    relative_bag_path = os.path.relpath(rosbag_path, start=remote_directory)
+    relative_bag_path = os.path.relpath(
+        rosbag_path, start=base_remote_directory
+    )
     print(f'relative_bag_path: {relative_bag_path}')
     # Check available disk space before compression
     if not check_disk_space(
@@ -568,6 +571,7 @@ def process_directory(
                     cloud_upload_directory,
                     config['mcap_path'],
                     config['upload_attempts'],
+                    base_remote_directory,
                 )
                 for rosbag in rosbag_list
             ]
