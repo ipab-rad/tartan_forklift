@@ -393,9 +393,16 @@ def find_metadata_file(remote_user, remote_ip, remote_directory):
 
 
 def copy_metadata_file(
-    remote_user, remote_ip, metadata_path, cloud_upload_directory
+    remote_user,
+    remote_ip,
+    metadata_path,
+    cloud_upload_directory,
+    remote_directory,
 ):
     """Copy metadata.yaml file from remote machine to cloud host."""
+    relative_metadata_path = os.path.relpath(
+        metadata_path, start=remote_directory
+    )
     rsync_cmd = [
         'rsync',
         '-av',
@@ -404,7 +411,7 @@ def copy_metadata_file(
         '--stats',
         '--relative',
         f'{remote_user}@{remote_ip}:{metadata_path}',
-        cloud_upload_directory,
+        os.path.join(cloud_upload_directory, relative_metadata_path),
     ]
     try:
         subprocess.run(rsync_cmd, check=True)
@@ -438,7 +445,9 @@ def process_directory(
             print(
                 'metadata.yaml file not found in {remote_directory}. Skipping.'
             )
-
+        relative_metadata_path = os.path.relpath(
+            metadata_path, start=remote_directory
+        )
         if not copy_metadata_file(
             remote_user, remote_ip, metadata_path, cloud_upload_directory
         ):
@@ -450,7 +459,7 @@ def process_directory(
 
         # Read the metadata.yaml file
         local_metadata_path = os.path.join(
-            cloud_upload_directory, 'metadata.yaml'
+            cloud_upload_directory, relative_metadata_path
         )
         metadata = read_metadata(local_metadata_path)
         expected_bags = metadata.get('relative_file_paths', [])
