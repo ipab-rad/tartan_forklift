@@ -449,7 +449,7 @@ def process_directory(
             metadata_path, start=remote_directory
         )
         if not copy_metadata_file(
-            remote_user, remote_ip, metadata_path, cloud_upload_directory
+            remote_user, remote_ip, metadata_path, cloud_upload_directory, remote_directory
         ):
             print(
                 'Failed to copy metadata.yaml from '
