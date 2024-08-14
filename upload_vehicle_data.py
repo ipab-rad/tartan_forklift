@@ -492,7 +492,11 @@ def process_directory(
         # Read the metadata.yaml file
 
         metadata = read_metadata(local_metadata_path)
-        expected_bags = metadata.get('relative_file_paths', [])
+        expected_bags = metadata.get('rosbag2_bagfile_information', {}).get(
+            'relative_file_paths', None
+        )
+        print(f'Expected bags: {expected_bags}')
+        print(f'len(expected_bags): {len(expected_bags)}')
 
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
