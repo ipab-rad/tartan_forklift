@@ -409,7 +409,6 @@ def copy_metadata_file(
         '--checksum',
         '--progress',
         '--stats',
-        '--relative',
         f'{remote_user}@{remote_ip}:{metadata_path}',
         os.path.join(cloud_upload_directory, relative_metadata_path),
     ]
