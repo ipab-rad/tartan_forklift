@@ -435,7 +435,12 @@ def read_metadata(metadata_path):
 
 
 def process_directory(
-    remote_user, remote_ip, remote_directory, cloud_upload_directory, config
+    remote_user,
+    remote_ip,
+    remote_directory,
+    cloud_upload_directory,
+    config,
+    base_remote_directory,
 ):
     """Process each directory."""
     # Create the remote temporary directory
@@ -451,14 +456,14 @@ def process_directory(
                 'metadata.yaml file not found in {remote_directory}. Skipping.'
             )
         relative_metadata_path = os.path.relpath(
-            metadata_path, start=remote_directory
+            metadata_path, start=base_remote_directory
         )
         if not copy_metadata_file(
             remote_user,
             remote_ip,
             metadata_path,
             cloud_upload_directory,
-            remote_directory,
+            base_remote_directory,
         ):
             print(
                 'Failed to copy metadata.yaml from '
@@ -637,6 +642,7 @@ def main(config, debug):
             subdirectory,
             cloud_upload_directory,
             config,
+            base_remote_directory,
         )
 
 
