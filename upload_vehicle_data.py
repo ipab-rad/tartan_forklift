@@ -415,6 +415,10 @@ def copy_metadata_file(
     try:
         subprocess.run(rsync_cmd, check=True)
         logging.info(f'Copied metadata.yaml to {cloud_upload_directory}.')
+        print(
+            f'Copied metadata.yaml to '
+            f' {os.path.join(cloud_upload_directory, relative_metadata_path)}.'
+        )
         return True
     except subprocess.CalledProcessError as e:
         logging.error(f'Failed to copy metadata.yaml: {e}')
@@ -448,7 +452,11 @@ def process_directory(
             metadata_path, start=remote_directory
         )
         if not copy_metadata_file(
-            remote_user, remote_ip, metadata_path, cloud_upload_directory, remote_directory
+            remote_user,
+            remote_ip,
+            metadata_path,
+            cloud_upload_directory,
+            remote_directory,
         ):
             print(
                 'Failed to copy metadata.yaml from '
