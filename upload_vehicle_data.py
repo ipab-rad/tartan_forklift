@@ -403,6 +403,7 @@ def copy_metadata_file(
     relative_metadata_path = os.path.relpath(
         metadata_path, start=remote_directory
     )
+    print(f'relative_metadata_path: {relative_metadata_path}')
     rsync_cmd = [
         'rsync',
         '-av',
