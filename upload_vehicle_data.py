@@ -29,7 +29,7 @@ def run_ssh_command(remote_user, remote_ip, command):
         raise
 
 
-def create_remote_directory(remote_user, remote_ip, remote_directory):
+def create_remote_temp_directory(remote_user, remote_ip, remote_directory):
     """Create a directory on the remote machine."""
     command = f'mkdir -p {remote_directory}/temp'
     run_ssh_command(remote_user, remote_ip, command)
@@ -434,6 +434,17 @@ def read_metadata(metadata_path):
     return metadata
 
 
+def check_and_create_local_directory(directory_path):
+    """Check if a directory exists on the local machine and create it."""
+    if not os.path.exists(directory_path):
+        try:
+            os.makedirs(directory_path)
+            logging.info(f'Created local directory: {directory_path}')
+        except OSError as e:
+            logging.error(f'Failed to create directory {directory_path}: {e}')
+            raise
+
+
 def process_directory(
     remote_user,
     remote_ip,
@@ -444,7 +455,7 @@ def process_directory(
 ):
     """Process each directory."""
     # Create the remote temporary directory
-    create_remote_directory(remote_user, remote_ip, remote_directory)
+    create_remote_temp_directory(remote_user, remote_ip, remote_directory)
 
     try:
         # Find and copy the metadata.yaml file
@@ -458,6 +469,13 @@ def process_directory(
         relative_metadata_path = os.path.relpath(
             metadata_path, start=base_remote_directory
         )
+
+        local_metadata_path = os.path.join(
+            cloud_upload_directory, relative_metadata_path
+        )
+
+        check_and_create_local_directory(os.path.dirname(local_metadata_path))
+
         if not copy_metadata_file(
             remote_user,
             remote_ip,
@@ -472,9 +490,7 @@ def process_directory(
             )
 
         # Read the metadata.yaml file
-        local_metadata_path = os.path.join(
-            cloud_upload_directory, relative_metadata_path
-        )
+
         metadata = read_metadata(local_metadata_path)
         expected_bags = metadata.get('relative_file_paths', [])
 
