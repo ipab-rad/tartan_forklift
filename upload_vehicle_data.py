@@ -80,6 +80,7 @@ def compress_and_transfer_rosbag(
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
+    print(f'rosbag_path: {rosbag_path}')
     relative_bag_path = os.path.relpath(rosbag_path, start=remote_directory)
     print(f'relative_bag_path: {relative_bag_path}')
     # Check available disk space before compression
