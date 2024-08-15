@@ -504,6 +504,7 @@ def process_directory(
     config,
     base_remote_directory,
     bandwidth_mbps,
+    file_sizes_dict,
 ):
     """Process each directory."""
     # Create the remote temporary directory
@@ -564,10 +565,7 @@ def process_directory(
             )
             return
 
-        rosbag_sizes = [
-            get_remote_file_size(logger, remote_user, remote_ip, rosbag)
-            for rosbag in rosbag_list
-        ]
+        rosbag_sizes = file_sizes_dict[remote_directory]
         total_size_gb = sum(rosbag_sizes)
         estimated_time = get_estimated_upload_time(
             total_size_gb, bandwidth_mbps, rosbag_sizes
@@ -661,6 +659,7 @@ def main(config, debug):
     total_rosbags = 0
     total_size_gb = 0.0
     total_estimated_time = 0.0
+    file_sizes_dict = {}
 
     # Compute total estimated time for all subdirectories
     for subdirectory in subdirectories:
@@ -674,6 +673,7 @@ def main(config, debug):
             get_remote_file_size(logger, remote_user, remote_ip, rosbag)
             for rosbag in rosbag_list
         ]
+        file_sizes_dict[subdirectory] = rosbag_sizes
         total_rosbags += len(rosbag_list)
         total_size_gb += sum(rosbag_sizes)
         total_estimated_time += get_estimated_upload_time(
@@ -712,6 +712,7 @@ def main(config, debug):
             config,
             base_remote_directory,
             bandwidth_mbps,
+            file_sizes_dict,
         )
 
 
