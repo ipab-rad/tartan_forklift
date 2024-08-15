@@ -285,7 +285,7 @@ def get_estimated_compression_time(file_sizes):
     """Estimate compression time in hours based on file sizes."""
     compression_speed_mbps = 120  # Compression speed in MB/s for zstd level 2
     total_compression_time = sum(
-        size / compression_speed_mbps / 3600 for size in file_sizes
+        size / compression_speed_mbps for size in file_sizes
     )  # Total compression time in hours
     return total_compression_time
 
@@ -573,10 +573,20 @@ def process_directory(
             total_size_gb, bandwidth_mbps, rosbag_sizes
         )
 
-        if estimated_time < 1:
-            estimated_time_str = f'{estimated_time * 60:.2f} minutes'
+        # Convert estimated_time (in hours) to seconds
+        total_seconds = int(estimated_time * 3600)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+
+        if hours > 0:
+            estimated_time_str = (
+                f'{hours} hours {minutes} minutes {seconds} seconds'
+            )
+        elif minutes > 0:
+            estimated_time_str = f'{minutes} minutes {seconds} seconds'
         else:
-            estimated_time_str = f'{estimated_time:.2f} hours'
+            estimated_time_str = f'{seconds} seconds'
 
         logger.info(
             f'Found {len(rosbag_list)} files to upload with total size '
@@ -647,7 +657,7 @@ def main(config, debug):
     subdirectories = list_remote_directories(
         logger, remote_user, remote_ip, base_remote_directory, directory_depth
     )
-    logger.debug(f'Found subdirectories: {subdirectories}')
+    logger.debug(f'Rosbags subdirectories found: {len(subdirectories)}')
     total_rosbags = 0
     total_size_gb = 0.0
     total_estimated_time = 0.0
