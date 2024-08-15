@@ -7,15 +7,29 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import colorlog
+
 import yaml
 
 
-# Setup logging
-logging.basicConfig(
-    filename='upload_vehicle_data.log',
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s: %(message)s',
-)
+def setup_logging(debug_mode):
+    """Configure logging with color support."""
+    formatter = colorlog.ColoredFormatter(
+        '%(asctime)s - %(log_color)s%(levelname)s%(reset)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+    console_handler = colorlog.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    logging.basicConfig(
+        filename='upload_vehicle_data.log',
+        level=logging.DEBUG if debug_mode else logging.INFO,
+        format='%(asctime)s %(levelname)s: %(message)s',
+        handlers=[
+            console_handler,
+            logging.FileHandler('upload_vehicle_data.log'),
+        ],
+    )
 
 
 def run_ssh_command(remote_user, remote_ip, command):
@@ -23,7 +37,7 @@ def run_ssh_command(remote_user, remote_ip, command):
     ssh_command = f"ssh {remote_user}@{remote_ip} '{command}'"
     try:
         subprocess.run(ssh_command, shell=True, check=True)
-        logging.info(f'Ran SSH command: {command}')
+        logging.debug(f'Ran SSH command: {command}')
     except subprocess.CalledProcessError as e:
         logging.error(f'Failed to run SSH command: {command}: {e}')
         raise
@@ -85,6 +99,7 @@ def compress_and_transfer_rosbag(
         rosbag_path, start=base_remote_directory
     )
     # Check available disk space before compression
+    logging.info(f'Starting compression of {rosbag_path} on remote machine...')
     if not check_disk_space(
         remote_user, remote_ip, remote_temp_directory, rosbag_path
     ):
@@ -99,10 +114,12 @@ def compress_and_transfer_rosbag(
         f'{mcap_path} compress {rosbag_path} -o {remote_compressed_path}'
     )
     try:
+        start_time = time.time()
         run_ssh_command(remote_user, remote_ip, compress_cmd)
+        duration = time.time() - start_time
         logging.info(
             f'Compressed rosbag {rosbag_path} to'
-            f'{remote_compressed_path} on the remote machine.'
+            f'{remote_compressed_path}  in {duration:.2f} seconds.'
         )
     except subprocess.CalledProcessError as e:
         logging.error(
@@ -134,7 +151,7 @@ def compress_and_transfer_rosbag(
             break
         except subprocess.CalledProcessError as e:
             attempts += 1
-            logging.error(
+            logging.warning(
                 f'Failed to transfer compressed rosbag'
                 f'{remote_compressed_path} '
                 f'from remote machine: {e}. '
@@ -153,7 +170,7 @@ def compress_and_transfer_rosbag(
     remove_remote_file_cmd = f'rm {remote_compressed_path}'
     try:
         run_ssh_command(remote_user, remote_ip, remove_remote_file_cmd)
-        logging.info(
+        logging.debug(
             f'Removed compressed rosbag {remote_compressed_path}'
             f' from the remote machine.'
         )
@@ -583,6 +600,7 @@ def process_directory(
 
 def main(config, debug):
     """Automate the upload of rosbags."""
+    setup_logging(debug)
     remote_user = config['remote_user']
     remote_ip = config['remote_ip']
     base_remote_directory = config['remote_directory']
@@ -590,19 +608,19 @@ def main(config, debug):
     directory_depth = config.get(
         'directory_depth', 1
     )  # Default to 1 for flat structure
-
+    logging.info('Starting rosbag upload process.')
     # Get all subdirectories in the base remote directory
     subdirectories = list_remote_directories(
         remote_user, remote_ip, base_remote_directory, directory_depth
     )
-
+    logging.debug(f'Found subdirectories: {subdirectories}')
     total_rosbags = 0
     total_size_gb = 0.0
     total_estimated_time = 0.0
     bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
 
     if bandwidth_mbps is None:
-        print('Could not measure bandwidth. Exiting.')
+        logging.error('Could not measure bandwidth. Exiting.')
         return
 
     # Compute total estimated time for all subdirectories
@@ -628,33 +646,21 @@ def main(config, debug):
     else:
         estimated_time_str = f'{total_estimated_time:.2f} hours'
 
-    if debug:
-        print(
-            f'Found {total_rosbags} files to upload with total size '
-            f'{total_size_gb:.2f} GB.'
-        )
-        print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
-        print(
-            f'Estimated total time (including compression) for '
-            f'all subdirectories is at least: '
-            f'{estimated_time_str}'
-        )
-        print('Rosbags directories to be processed:')
-        for bag_path in subdirectories:
-            print(f'{bag_path}')
-        print()
-
+    logging.info(
+        f'Found {total_rosbags} files to upload '
+        f'with total size {total_size_gb:.2f} GB.'
+    )
+    logging.info(
+        f'Estimated total time (including compression) for '
+        f'all subdirectories is: {estimated_time_str}.'
+    )
     confirm = input('Do you want to proceed to upload? (yes/no): ')
 
     if confirm.lower() != 'yes':
-        print('Upload aborted.')
+        logging.info('Upload aborted by user.')
         return
 
-    logging.info(
-        f'Starting upload of {total_rosbags} files with total size '
-        f'{total_size_gb:.2f} GB.'
-    )
-    logging.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
+    logging.info('User confirmed upload. Beginning processing of directories.')
 
     # Process each subdirectory
     for subdirectory in subdirectories:
