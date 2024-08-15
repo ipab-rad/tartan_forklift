@@ -6,6 +6,7 @@ import os
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import colorlog
 
@@ -14,54 +15,82 @@ import yaml
 
 def setup_logging(debug_mode):
     """Configure logging with color support."""
-    formatter = colorlog.ColoredFormatter(
+    # Timestamp for the log file name
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_filename = f'upload_vehicle_data_{timestamp}.log'
+
+    # Create a logger
+    logger = logging.getLogger('rosbag_upload')
+    logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+
+    # Create a console handler (StreamHandler)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+
+    # Create a file handler (FileHandler)
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+
+    # Create a colored formatter for the console handler
+    color_formatter = colorlog.ColoredFormatter(
         '%(asctime)s - %(log_color)s%(levelname)s%(reset)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
     )
-    console_handler = colorlog.StreamHandler()
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(color_formatter)
 
-    logging.basicConfig(
-        filename='upload_vehicle_data.log',
-        level=logging.DEBUG if debug_mode else logging.INFO,
-        format='%(asctime)s %(levelname)s: %(message)s',
-        handlers=[
-            console_handler,
-            logging.FileHandler('upload_vehicle_data.log'),
-        ],
+    # Create a regular formatter for the file handler
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
     )
+    file_handler.setFormatter(file_formatter)
+
+    # Add the handlers to the logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
 
 
-def run_ssh_command(remote_user, remote_ip, command):
+def run_ssh_command(logger, remote_user, remote_ip, command):
     """Run a command on the remote machine using SSH."""
     ssh_command = f"ssh {remote_user}@{remote_ip} '{command}'"
     try:
         subprocess.run(ssh_command, shell=True, check=True)
-        logging.debug(f'Ran SSH command: {command}')
+        logger.debug(f'Ran SSH command: {command}')
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to run SSH command: {command}: {e}')
+        logger.error(f'Failed to run SSH command: {command}: {e}')
         raise
 
 
-def create_remote_temp_directory(remote_user, remote_ip, remote_directory):
+def create_remote_temp_directory(
+    logger, remote_user, remote_ip, remote_directory
+):
     """Create a directory on the remote machine."""
     command = f'mkdir -p {remote_directory}/temp'
-    run_ssh_command(remote_user, remote_ip, command)
+    run_ssh_command(logger, remote_user, remote_ip, command)
+    logger.info(f'Created remote temporary directory: {remote_directory}/temp')
 
 
-def delete_remote_temp_directory(remote_user, remote_ip, remote_directory):
+def delete_remote_temp_directory(
+    logger, remote_user, remote_ip, remote_directory
+):
     """Delete a directory on the remote machine."""
     command = f'rm -rf {remote_directory}/temp'
-    run_ssh_command(remote_user, remote_ip, command)
+    run_ssh_command(logger, remote_user, remote_ip, command)
+    logger.info(f'Deleted remote temporary directory: {remote_directory}/temp')
 
 
-def delete_remote_directory_contents(remote_user, remote_ip, remote_directory):
+def delete_remote_directory_contents(
+    logger, remote_user, remote_ip, remote_directory
+):
     """Delete the contents of a directory on the remote machine."""
     command = f'rm -rf {remote_directory}/*'
-    run_ssh_command(remote_user, remote_ip, command)
+    run_ssh_command(logger, remote_user, remote_ip, command)
+    logger.info(f'Deleted contents of remote directory: {remote_directory}')
 
 
-def get_remote_home_directory(remote_user, remote_ip):
+def get_remote_home_directory(logger, remote_user, remote_ip):
     """Get the home directory of the remote user."""
     home_dir_cmd = f'ssh {remote_user}@{remote_ip} "eval echo ~$USER"'
     try:
@@ -73,17 +102,18 @@ def get_remote_home_directory(remote_user, remote_ip):
             check=True,
         )
         remote_home_directory = result.stdout.strip()
-        logging.info(
+        logger.info(
             f'Remote home directory for {remote_user} '
             f'is {remote_home_directory}'
         )
         return remote_home_directory
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to get remote home directory: {e}')
+        logger.error(f'Failed to get remote home directory: {e}')
         raise
 
 
 def compress_and_transfer_rosbag(
+    logger,
     remote_user,
     remote_ip,
     rosbag_path,
@@ -99,11 +129,11 @@ def compress_and_transfer_rosbag(
         rosbag_path, start=base_remote_directory
     )
     # Check available disk space before compression
-    logging.info(f'Starting compression of {rosbag_path} on remote machine...')
+    logger.info(f'Starting compression of {rosbag_path} on remote machine...')
     if not check_disk_space(
         remote_user, remote_ip, remote_temp_directory, rosbag_path
     ):
-        logging.error(f'Insufficient disk space for compressing {rosbag_path}')
+        logger.error(f'Insufficient disk space for compressing {rosbag_path}')
         return False
 
     # Compress the rosbag on the remote machine
@@ -115,14 +145,14 @@ def compress_and_transfer_rosbag(
     )
     try:
         start_time = time.time()
-        run_ssh_command(remote_user, remote_ip, compress_cmd)
+        run_ssh_command(logger, remote_user, remote_ip, compress_cmd)
         duration = time.time() - start_time
-        logging.info(
+        logger.info(
             f'Compressed rosbag {rosbag_path} to'
             f'{remote_compressed_path}  in {duration:.2f} seconds.'
         )
     except subprocess.CalledProcessError as e:
-        logging.error(
+        logger.error(
             f'Failed to compress rosbag {rosbag_path} on remote machine: {e}'
         )
         return False
@@ -143,7 +173,7 @@ def compress_and_transfer_rosbag(
     while attempts < max_upload_attempts:
         try:
             subprocess.run(rsync_cmd, check=True)
-            logging.info(
+            logger.info(
                 f'Transferred compressed rosbag {remote_compressed_path} '
                 f'to the cloud host at {cloud_upload_directory}.'
             )
@@ -151,7 +181,7 @@ def compress_and_transfer_rosbag(
             break
         except subprocess.CalledProcessError as e:
             attempts += 1
-            logging.warning(
+            logger.warning(
                 f'Failed to transfer compressed rosbag'
                 f'{remote_compressed_path} '
                 f'from remote machine: {e}. '
@@ -159,7 +189,7 @@ def compress_and_transfer_rosbag(
             )
 
     if not success:
-        logging.error(
+        logger.error(
             f'All {max_upload_attempts} attempts to'
             f' transfer compressed rosbag '
             f'{remote_compressed_path} from remote machine have failed.'
@@ -169,13 +199,13 @@ def compress_and_transfer_rosbag(
     # Remove the compressed file from the remote machine
     remove_remote_file_cmd = f'rm {remote_compressed_path}'
     try:
-        run_ssh_command(remote_user, remote_ip, remove_remote_file_cmd)
-        logging.debug(
+        run_ssh_command(logger, remote_user, remote_ip, remove_remote_file_cmd)
+        logger.debug(
             f'Removed compressed rosbag {remote_compressed_path}'
             f' from the remote machine.'
         )
     except subprocess.CalledProcessError as e:
-        logging.error(
+        logger.error(
             f'Failed to remove compressed rosbag'
             f'{remote_compressed_path} from remote machine: {e}'
         )
@@ -184,7 +214,7 @@ def compress_and_transfer_rosbag(
     return True
 
 
-def get_remote_rosbags_list(remote_user, remote_ip, remote_directory):
+def get_remote_rosbags_list(logger, remote_user, remote_ip, remote_directory):
     """Get a list of all rosbags on the remote machine."""
     list_cmd = f"find {remote_directory} -name '*.mcap'"
     try:
@@ -196,17 +226,15 @@ def get_remote_rosbags_list(remote_user, remote_ip, remote_directory):
             check=True,
         )
         rosbag_list = result.stdout.splitlines()
-        logging.info(
-            f'Found {len(rosbag_list)} rosbags on the remote machine.'
-        )
+        logger.info(f'Found {len(rosbag_list)} rosbags on the remote machine.')
         return rosbag_list
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to list rosbags on remote machine: {e}')
+        logger.error(f'Failed to list rosbags on remote machine: {e}')
         raise
 
 
 def list_remote_directories(
-    remote_user, remote_ip, base_remote_directory, depth
+    logger, remote_user, remote_ip, base_remote_directory, depth
 ):
     """List directories on the remote machine up to a given depth."""
     list_cmd = (
@@ -222,19 +250,19 @@ def list_remote_directories(
             check=True,
         )
         subdirectories = result.stdout.splitlines()
-        logging.info(
+        logger.info(
             f'Listed directories up to depth {depth} in '
             f'{base_remote_directory}'
         )
         return subdirectories
     except subprocess.CalledProcessError as e:
-        logging.error(
+        logger.error(
             f'Failed to list subdirectories in {base_remote_directory}: {e}'
         )
         return []
 
 
-def get_remote_file_size(remote_user, remote_ip, file_path):
+def get_remote_file_size(logger, remote_user, remote_ip, file_path):
     """Get the size of a remote file."""
     size_cmd = f'stat -c%s {file_path}'
     try:
@@ -246,10 +274,10 @@ def get_remote_file_size(remote_user, remote_ip, file_path):
             check=True,
         )
         file_size = int(result.stdout.strip())
-        logging.info(f'Size of file {file_path} is {file_size} bytes.')
+        logger.info(f'Size of file {file_path} is {file_size} bytes.')
         return file_size / (1024**3)  # Convert to GB
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to get size of remote file {file_path}: {e}')
+        logger.error(f'Failed to get size of remote file {file_path}: {e}')
         raise
 
 
@@ -271,13 +299,14 @@ def get_estimated_upload_time(total_size_gb, bandwidth_mbps, file_sizes):
     return upload_time + compression_time  # Total time including compression
 
 
-def measure_bandwidth(remote_ip, remote_user):
+def measure_bandwidth(logger, remote_ip, remote_user):
     """Measure bandwidth between cloud host and remote machine."""
+    logger.info(f'Starting bandwidth measurement for {remote_ip}...')
     try:
         # Start iperf3 server on the remote machine
         server_cmd = f'ssh {remote_user}@{remote_ip} ' f"'iperf3 -s -D'"
         subprocess.run(server_cmd, shell=True, check=True)
-        logging.info(f'Started iperf3 server on {remote_ip}')
+        logger.debug(f'Started iperf3 server on {remote_ip}')
 
         # Run iperf3 client on the cloud host
         result = subprocess.run(
@@ -289,19 +318,21 @@ def measure_bandwidth(remote_ip, remote_user):
         for line in result.stdout.split('\n'):
             if 'receiver' in line:
                 bandwidth_mbps = float(line.split()[-3])
+                logger.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
                 return bandwidth_mbps
     except subprocess.CalledProcessError as e:
-        logging.error(f'iperf3 error: {e}')
+        logger.error(f'iperf3 error: {e}')
     finally:
         # Stop iperf3 server on the remote machine
         stop_server_cmd = f'ssh {remote_user}@{remote_ip} ' f"'pkill iperf3'"
         subprocess.run(stop_server_cmd, shell=True)
-        logging.info(f'Stopped iperf3 server on {remote_ip}')
+        logger.debug(f'Stopped iperf3 server on {remote_ip}')
+    logger.warning(f'Failed to measure bandwidth for {remote_ip}.')
     return None
 
 
 def check_disk_space(
-    remote_user, remote_ip, directory, rosbag_path, retries=3, delay=5
+    logger, remote_user, remote_ip, directory, rosbag_path, retries=3, delay=5
 ):
     """Check if there's enough disk space on the remote machine."""
     for attempt in range(retries):
@@ -319,7 +350,7 @@ def check_disk_space(
                 check=True,
             )
             available_space = int(result.stdout.strip())
-            logging.info(f'Available space: {available_space} bytes.')
+            logger.info(f'Available space: {available_space} bytes.')
 
             # Get the file size of the rosbag on the remote machine
             file_size_cmd = (
@@ -333,34 +364,34 @@ def check_disk_space(
                 check=True,
             )
             file_size = int(result.stdout.strip())
-            logging.info(f'File size: {file_size} bytes.')
+            logger.info(f'File size: {file_size} bytes.')
 
             # Check if there is enough space
             if file_size <= available_space:
                 return True
             else:
-                logging.warning(
+                logger.warning(
                     f'Insufficient disk space for {rosbag_path}. '
                     f'Attempting to free up space.'
                 )
                 # If no space, delete the oldest mcap file
-                delete_oldest_mcap(remote_user, remote_ip, directory)
+                delete_oldest_mcap(logger, remote_user, remote_ip, directory)
 
         except subprocess.CalledProcessError as e:
-            logging.error(
+            logger.error(
                 f'Attempt {attempt + 1} - '
                 f'Failed to check disk space on remote machine: {e}'
             )
 
         if attempt < retries - 1:
-            logging.info(f'Retrying in {delay} seconds...')
+            logger.info(f'Retrying in {delay} seconds...')
             time.sleep(delay)
 
-    logging.error('Failed to check disk space after multiple attempts.')
+    logger.error('Failed to check disk space after multiple attempts.')
     return False
 
 
-def delete_oldest_mcap(remote_user, remote_ip, directory):
+def delete_oldest_mcap(logger, remote_user, remote_ip, directory):
     """Delete the oldest mcap file in the directory."""
     list_cmd = (
         f"find {directory} -name '*.mcap' -type f -printf '%T+ %p\n' | sort | "
@@ -377,20 +408,21 @@ def delete_oldest_mcap(remote_user, remote_ip, directory):
         oldest_file = result.stdout.strip()
         if oldest_file:
             delete_cmd = f'rm {oldest_file}'
-            run_ssh_command(remote_user, remote_ip, delete_cmd)
-            logging.info(f'Deleted oldest mcap file: {oldest_file}')
+            run_ssh_command(logger, remote_user, remote_ip, delete_cmd)
+            logger.info(f'Deleted oldest mcap file: {oldest_file}')
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to delete oldest mcap file: {e}')
+        logger.error(f'Failed to delete oldest mcap file: {e}')
         raise
 
 
-def delete_remote_file(remote_user, remote_ip, file_path):
+def delete_remote_file(logger, remote_user, remote_ip, file_path):
     """Delete a specific file on the remote machine."""
     command = f'rm {file_path}'
-    run_ssh_command(remote_user, remote_ip, command)
+    run_ssh_command(logger, remote_user, remote_ip, command)
+    logger.info(f'Deleted file: {file_path}')
 
 
-def find_metadata_file(remote_user, remote_ip, remote_directory):
+def find_metadata_file(logger, remote_user, remote_ip, remote_directory):
     """Find the metadata.yaml file on the remote machine."""
     find_cmd = f"find {remote_directory} -name 'metadata.yaml'"
     try:
@@ -403,17 +435,18 @@ def find_metadata_file(remote_user, remote_ip, remote_directory):
         )
         metadata_files = result.stdout.splitlines()
         if metadata_files:
-            logging.info(f'Found metadata.yaml file at {metadata_files[0]}.')
+            logger.info(f'Found metadata.yaml file at {metadata_files[0]}.')
             return metadata_files[0]
         else:
-            logging.error('metadata.yaml file not found.')
+            logger.error('metadata.yaml file not found.')
             return None
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to find metadata.yaml file: {e}')
+        logger.error(f'Failed to find metadata.yaml file: {e}')
         raise
 
 
 def copy_metadata_file(
+    logger,
     remote_user,
     remote_ip,
     metadata_path,
@@ -435,55 +468,58 @@ def copy_metadata_file(
     ]
     try:
         subprocess.run(rsync_cmd, check=True)
-        logging.info(f'Copied metadata.yaml to {cloud_upload_directory}.')
-        print(
-            f'Copied metadata.yaml to '
-            f' {os.path.join(cloud_upload_directory, relative_metadata_path)}.'
-        )
+        logger.info(f'Copied metadata.yaml to {cloud_upload_directory}.')
+
         return True
     except subprocess.CalledProcessError as e:
-        logging.error(f'Failed to copy metadata.yaml: {e}')
+        logger.error(f'Failed to copy metadata.yaml: {e}')
         return False
 
 
-def read_metadata(metadata_path):
+def read_metadata(logger, metadata_path):
     """Read the metadata.yaml file and return its contents."""
     with open(metadata_path) as file:
         metadata = yaml.safe_load(file)
+    logger.info(f'Read metadata from {metadata_path}.')
     return metadata
 
 
-def check_and_create_local_directory(directory_path):
+def check_and_create_local_directory(logger, directory_path):
     """Check if a directory exists on the local machine and create it."""
     if not os.path.exists(directory_path):
         try:
             os.makedirs(directory_path)
-            logging.info(f'Created local directory: {directory_path}')
+            logger.info(f'Created local directory: {directory_path}')
         except OSError as e:
-            logging.error(f'Failed to create directory {directory_path}: {e}')
+            logger.error(f'Failed to create directory {directory_path}: {e}')
             raise
 
 
 def process_directory(
+    logger,
     remote_user,
     remote_ip,
     remote_directory,
     cloud_upload_directory,
     config,
     base_remote_directory,
+    bandwidth_mbps,
 ):
     """Process each directory."""
     # Create the remote temporary directory
-    create_remote_temp_directory(remote_user, remote_ip, remote_directory)
+    create_remote_temp_directory(
+        logger, remote_user, remote_ip, remote_directory
+    )
 
     try:
         # Find and copy the metadata.yaml file
         metadata_path = find_metadata_file(
-            remote_user, remote_ip, remote_directory
+            logger, remote_user, remote_ip, remote_directory
         )
         if metadata_path is None:
-            print(
-                'metadata.yaml file not found in {remote_directory}. Skipping.'
+            logger.error(
+                f'metadata.yaml file not found in {remote_directory}. '
+                f'Skipping.'
             )
         relative_metadata_path = os.path.relpath(
             metadata_path, start=base_remote_directory
@@ -493,47 +529,43 @@ def process_directory(
             cloud_upload_directory, relative_metadata_path
         )
 
-        check_and_create_local_directory(os.path.dirname(local_metadata_path))
+        check_and_create_local_directory(
+            logger, os.path.dirname(local_metadata_path)
+        )
 
         if not copy_metadata_file(
+            logger,
             remote_user,
             remote_ip,
             metadata_path,
             cloud_upload_directory,
             base_remote_directory,
         ):
-            print(
-                'Failed to copy metadata.yaml from '
-                '{remote_directory}. '
-                'Skipping.'
+            logger.error(
+                f'Failed to copy metadata.yaml from '
+                f'{remote_directory}. Skipping.'
             )
 
         # Read the metadata.yaml file
 
-        metadata = read_metadata(local_metadata_path)
+        metadata = read_metadata(logger, local_metadata_path)
         expected_bags = metadata.get('rosbag2_bagfile_information', {}).get(
             'relative_file_paths', None
         )
 
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
-            remote_user, remote_ip, remote_directory
+            logger, remote_user, remote_ip, remote_directory
         )
 
         if len(rosbag_list) != len(expected_bags):
-            print(
+            logger.error(
                 'The number of rosbags does not match the metadata. Skipping.'
             )
-            logging.error('The number of rosbags does not match the metadata.')
-            return
-
-        bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
-        if bandwidth_mbps is None:
-            print('Could not measure bandwidth. Skipping.')
             return
 
         rosbag_sizes = [
-            get_remote_file_size(remote_user, remote_ip, rosbag)
+            get_remote_file_size(logger, remote_user, remote_ip, rosbag)
             for rosbag in rosbag_list
         ]
         total_size_gb = sum(rosbag_sizes)
@@ -546,21 +578,14 @@ def process_directory(
         else:
             estimated_time_str = f'{estimated_time:.2f} hours'
 
-        print(
+        logger.info(
             f'Found {len(rosbag_list)} files to upload with total size '
-            f'{total_size_gb:.2f} GB.'
-        )
-        print(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
-        print(
-            f'Estimated total time (including compression) is at least: '
-            f'{estimated_time_str}.'
-        )
-
-        logging.info(
-            f'Starting upload of {len(rosbag_list)} files with total size '
             f'{total_size_gb:.2f} GB from {remote_directory}.'
         )
-        logging.info(f'Measured bandwidth: {bandwidth_mbps:.2f} Mbps')
+        logger.info(
+            f'Estimated total time (including compression) '
+            f'is at least: {estimated_time_str}.'
+        )
 
         successfully_uploaded_files = []
 
@@ -571,6 +596,7 @@ def process_directory(
             futures = [
                 executor.submit(
                     compress_and_transfer_rosbag,
+                    logger,
                     remote_user,
                     remote_ip,
                     rosbag,
@@ -591,16 +617,18 @@ def process_directory(
         if config['clean_up']:
             # Only delete rosbag files that were successfully uploaded
             for rosbag in successfully_uploaded_files:
-                delete_remote_file(remote_user, remote_ip, rosbag)
+                delete_remote_file(logger, remote_user, remote_ip, rosbag)
 
     finally:
         # Delete the remote temporary directory
-        delete_remote_temp_directory(remote_user, remote_ip, remote_directory)
+        delete_remote_temp_directory(
+            logger, remote_user, remote_ip, remote_directory
+        )
 
 
 def main(config, debug):
     """Automate the upload of rosbags."""
-    setup_logging(debug)
+    logger = setup_logging(debug)
     remote_user = config['remote_user']
     remote_ip = config['remote_ip']
     base_remote_directory = config['remote_directory']
@@ -608,31 +636,32 @@ def main(config, debug):
     directory_depth = config.get(
         'directory_depth', 1
     )  # Default to 1 for flat structure
-    logging.info('Starting rosbag upload process.')
+    logger.info('Starting rosbag upload process.')
+
+    # Measure bandwidth once at the start
+    bandwidth_mbps = measure_bandwidth(logger, remote_ip, remote_user)
+    if bandwidth_mbps is None:
+        logger.error('Could not measure bandwidth. Exiting.')
+        return
     # Get all subdirectories in the base remote directory
     subdirectories = list_remote_directories(
-        remote_user, remote_ip, base_remote_directory, directory_depth
+        logger, remote_user, remote_ip, base_remote_directory, directory_depth
     )
-    logging.debug(f'Found subdirectories: {subdirectories}')
+    logger.debug(f'Found subdirectories: {subdirectories}')
     total_rosbags = 0
     total_size_gb = 0.0
     total_estimated_time = 0.0
-    bandwidth_mbps = measure_bandwidth(remote_ip, remote_user)
-
-    if bandwidth_mbps is None:
-        logging.error('Could not measure bandwidth. Exiting.')
-        return
 
     # Compute total estimated time for all subdirectories
     for subdirectory in subdirectories:
         # Get the list of rosbags from the remote machine
         rosbag_list = get_remote_rosbags_list(
-            remote_user, remote_ip, subdirectory
+            logger, remote_user, remote_ip, subdirectory
         )
 
         # Get the size of each rosbag
         rosbag_sizes = [
-            get_remote_file_size(remote_user, remote_ip, rosbag)
+            get_remote_file_size(logger, remote_user, remote_ip, rosbag)
             for rosbag in rosbag_list
         ]
         total_rosbags += len(rosbag_list)
@@ -646,31 +675,33 @@ def main(config, debug):
     else:
         estimated_time_str = f'{total_estimated_time:.2f} hours'
 
-    logging.info(
+    logger.info(
         f'Found {total_rosbags} files to upload '
         f'with total size {total_size_gb:.2f} GB.'
     )
-    logging.info(
+    logger.info(
         f'Estimated total time (including compression) for '
         f'all subdirectories is: {estimated_time_str}.'
     )
     confirm = input('Do you want to proceed to upload? (yes/no): ')
 
     if confirm.lower() != 'yes':
-        logging.info('Upload aborted by user.')
+        logger.info('Upload aborted by user.')
         return
 
-    logging.info('User confirmed upload. Beginning processing of directories.')
+    logger.info('User confirmed upload. Beginning processing of directories.')
 
     # Process each subdirectory
     for subdirectory in subdirectories:
         process_directory(
+            logger,
             remote_user,
             remote_ip,
             subdirectory,
             cloud_upload_directory,
             config,
             base_remote_directory,
+            bandwidth_mbps,
         )
 
 
