@@ -131,7 +131,7 @@ def compress_and_transfer_rosbag(
     # Check available disk space before compression
     logger.info(f'Starting compression of {rosbag_path} on remote machine...')
     if not check_disk_space(
-        remote_user, remote_ip, remote_temp_directory, rosbag_path
+        logger, remote_user, remote_ip, remote_temp_directory, rosbag_path
     ):
         logger.error(f'Insufficient disk space for compressing {rosbag_path}')
         return False
