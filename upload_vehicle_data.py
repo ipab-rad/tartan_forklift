@@ -78,7 +78,9 @@ def delete_remote_temp_directory(
     """Delete a directory on the remote machine."""
     command = f'rm -rf {remote_directory}/temp'
     run_ssh_command(logger, remote_user, remote_ip, command)
-    logger.info(f'Deleted remote temporary directory: {remote_directory}/temp')
+    logger.debug(
+        f'Deleted remote temporary directory: {remote_directory}/temp'
+    )
 
 
 def delete_remote_directory_contents(
@@ -87,7 +89,7 @@ def delete_remote_directory_contents(
     """Delete the contents of a directory on the remote machine."""
     command = f'rm -rf {remote_directory}/*'
     run_ssh_command(logger, remote_user, remote_ip, command)
-    logger.info(f'Deleted contents of remote directory: {remote_directory}')
+    logger.debug(f'Deleted contents of remote directory: {remote_directory}')
 
 
 def get_remote_home_directory(logger, remote_user, remote_ip):
@@ -122,6 +124,8 @@ def compress_and_transfer_rosbag(
     mcap_path,
     max_upload_attempts,
     base_remote_directory,
+    current_rosbag_number,
+    total_rosbags,
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
@@ -136,6 +140,11 @@ def compress_and_transfer_rosbag(
         logger.error(f'Insufficient disk space for compressing {rosbag_path}')
         return False
 
+    logger.info(
+        f'Enough space found on the remote machine. Start '
+        f'compressing: \n{rosbag_path}'
+    )
+
     # Compress the rosbag on the remote machine
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
@@ -147,9 +156,12 @@ def compress_and_transfer_rosbag(
         start_time = time.time()
         run_ssh_command(logger, remote_user, remote_ip, compress_cmd)
         duration = time.time() - start_time
-        logger.info(
-            f'Compressed rosbag {rosbag_path} to'
-            f'{remote_compressed_path}  in {duration:.2f} seconds.'
+
+        logger.info(f'Rosbag compressed in  {duration:.2f} seconds')
+
+        logger.debug(
+            f'Compressed version temporarily stored in '
+            f'{remote_compressed_path}'
         )
     except subprocess.CalledProcessError as e:
         logger.error(
@@ -172,10 +184,18 @@ def compress_and_transfer_rosbag(
     attempts = 0
     while attempts < max_upload_attempts:
         try:
-            subprocess.run(rsync_cmd, check=True)
             logger.info(
-                f'Transferred compressed rosbag {remote_compressed_path} '
-                f'to the cloud host at {cloud_upload_directory}.'
+                f'Uploading rosbag {current_rosbag_number}/{total_rosbags} ...'
+            )
+            start_time = time.time()
+            subprocess.run(rsync_cmd, check=True)
+            duration = time.time() - start_time
+
+            logger.info(f'Rosbag uploaded in {duration:.2f} seconds')
+
+            logger.debug(
+                f'Compressed rosbag {remote_compressed_path} '
+                f'uploaded to {cloud_upload_directory}.'
             )
             success = True
             break
@@ -275,7 +295,7 @@ def get_remote_file_size(logger, remote_user, remote_ip, file_path):
         )
         file_size = int(result.stdout.strip())
         logger.info(f'Size of file {file_path} is {file_size} bytes.')
-        return file_size / (1024**3)  # Convert to GB
+        return file_size  # Return size in bytes for further calculations
     except subprocess.CalledProcessError as e:
         logger.error(f'Failed to get size of remote file {file_path}: {e}')
         raise
@@ -285,18 +305,23 @@ def get_estimated_compression_time(file_sizes):
     """Estimate compression time in hours based on file sizes."""
     compression_speed_mbps = 120  # Compression speed in MB/s for zstd level 2
     total_compression_time = sum(
-        size / compression_speed_mbps for size in file_sizes
-    )  # Total compression time in hours
-    return total_compression_time
+        (size / (1024**2)) / compression_speed_mbps for size in file_sizes
+    )  # Total compression time in seconds
+    total_compression_time_hours = (
+        total_compression_time / 3600
+    )  # Convert to hours
+    return total_compression_time_hours
 
 
-def get_estimated_upload_time(total_size_gb, bandwidth_mbps, file_sizes):
+def get_estimated_upload_time(total_size_bytes, bandwidth_mbps, file_sizes):
     """Estimate upload time in hours, including compression time."""
     compression_time = get_estimated_compression_time(file_sizes)
     bandwidth_mbs = bandwidth_mbps / 8  # Convert Mbps to MB/s
-    total_size_mb = total_size_gb * 1024  # Convert GB to MB
-    upload_time = total_size_mb / bandwidth_mbs / 3600  # Upload time in hours
-    return upload_time + compression_time  # Total time including compression
+    total_size_mb = total_size_bytes / (1024**2)  # Convert bytes to MB
+    upload_time = total_size_mb / bandwidth_mbs  # Upload time in seconds
+    return (
+        upload_time / 3600
+    ) + compression_time  # Total time in hours including compression
 
 
 def measure_bandwidth(logger, remote_ip, remote_user):
@@ -364,7 +389,7 @@ def check_disk_space(
                 check=True,
             )
             file_size = int(result.stdout.strip())
-            logger.info(f'File size: {file_size} bytes.')
+            logger.debug(f'File size: {file_size} bytes.')
 
             # Check if there is enough space
             if file_size <= available_space:
@@ -419,7 +444,7 @@ def delete_remote_file(logger, remote_user, remote_ip, file_path):
     """Delete a specific file on the remote machine."""
     command = f'rm {file_path}'
     run_ssh_command(logger, remote_user, remote_ip, command)
-    logger.info(f'Deleted file: {file_path}')
+    logger.debug(f'Deleted file: {file_path}')
 
 
 def find_metadata_file(logger, remote_user, remote_ip, remote_directory):
@@ -566,9 +591,9 @@ def process_directory(
             return
 
         rosbag_sizes = file_sizes_dict[remote_directory]
-        total_size_gb = sum(rosbag_sizes)
+        total_size_bytes = sum(rosbag_sizes)
         estimated_time = get_estimated_upload_time(
-            total_size_gb, bandwidth_mbps, rosbag_sizes
+            total_size_bytes, bandwidth_mbps, rosbag_sizes
         )
 
         # Convert estimated_time (in hours) to seconds
@@ -588,7 +613,7 @@ def process_directory(
 
         logger.info(
             f'Found {len(rosbag_list)} files to upload with total size '
-            f'{total_size_gb:.2f} GB from {remote_directory}.'
+            f'{total_size_bytes / (1024**3):.2f} GB from {remote_directory}.'
         )
         logger.info(
             f'Estimated total time (including compression) '
@@ -613,8 +638,10 @@ def process_directory(
                     config['mcap_path'],
                     config['upload_attempts'],
                     base_remote_directory,
+                    current_rosbag_number=i + 1,
+                    total_rosbags=len(rosbag_list),
                 )
-                for rosbag in rosbag_list
+                for i, rosbag in enumerate(rosbag_list)
             ]
 
             for future in futures:
@@ -651,19 +678,19 @@ def main(config, debug):
     if bandwidth_mbps is None:
         logger.error('Could not measure bandwidth. Exiting.')
         return
-    # Get all subdirectories in the base remote directory
+    #  Retrieve all subdirectories containing rosbags in the remotes directory
     subdirectories = list_remote_directories(
         logger, remote_user, remote_ip, base_remote_directory, directory_depth
     )
     logger.debug(f'Rosbags subdirectories found: {len(subdirectories)}')
     total_rosbags = 0
-    total_size_gb = 0.0
+    total_size_bytes = 0.0
     total_estimated_time = 0.0
     file_sizes_dict = {}
 
     # Compute total estimated time for all subdirectories
     for subdirectory in subdirectories:
-        # Get the list of rosbags from the remote machine
+        # Retrieve the list of rosbags contained in the remote subdirectory
         rosbag_list = get_remote_rosbags_list(
             logger, remote_user, remote_ip, subdirectory
         )
@@ -675,19 +702,28 @@ def main(config, debug):
         ]
         file_sizes_dict[subdirectory] = rosbag_sizes
         total_rosbags += len(rosbag_list)
-        total_size_gb += sum(rosbag_sizes)
+        total_size_bytes += sum(rosbag_sizes)
         total_estimated_time += get_estimated_upload_time(
             sum(rosbag_sizes), bandwidth_mbps, rosbag_sizes
         )
 
-    if total_estimated_time < 1:
-        estimated_time_str = f'{total_estimated_time * 60:.2f} minutes'
+    total_estimated_seconds = int(total_estimated_time * 3600)
+    hours = total_estimated_seconds // 3600
+    minutes = (total_estimated_seconds % 3600) // 60
+    seconds = total_estimated_seconds % 60
+
+    if hours > 0:
+        estimated_time_str = (
+            f'{hours} hours {minutes} minutes {seconds} seconds'
+        )
+    elif minutes > 0:
+        estimated_time_str = f'{minutes} minutes {seconds} seconds'
     else:
-        estimated_time_str = f'{total_estimated_time:.2f} hours'
+        estimated_time_str = f'{seconds} seconds'
 
     logger.info(
         f'Found {total_rosbags} files to upload '
-        f'with total size {total_size_gb:.2f} GB.'
+        f'with total size {total_size_bytes / (1024**3):.2f} GB.'
     )
     logger.info(
         f'Estimated total time (including compression) for '
