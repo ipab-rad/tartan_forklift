@@ -536,6 +536,8 @@ def process_directory(
     create_remote_temp_directory(
         logger, remote_user, remote_ip, remote_directory
     )
+    successfully_uploaded_files = []
+    total_files = 0
 
     try:
         # Find and copy the metadata.yaml file
@@ -588,10 +590,14 @@ def process_directory(
             logger.error(
                 'The number of rosbags does not match the metadata. Skipping.'
             )
-            return
+            return {
+                'uploaded_files': len(successfully_uploaded_files),
+                'total_files': total_files,
+            }
 
         rosbag_sizes = file_sizes_dict[remote_directory]
         total_size_bytes = sum(rosbag_sizes)
+        total_files = len(rosbag_list)
         estimated_time = get_estimated_upload_time(
             total_size_bytes, bandwidth_mbps, rosbag_sizes
         )
@@ -659,6 +665,10 @@ def process_directory(
         delete_remote_temp_directory(
             logger, remote_user, remote_ip, remote_directory
         )
+    return {
+        'uploaded_files': len(successfully_uploaded_files),
+        'total_files': total_files,
+    }
 
 
 def main(config, debug):
@@ -737,9 +747,14 @@ def main(config, debug):
 
     logger.info('User confirmed upload. Beginning processing of directories.')
 
+    total_uploaded_files = (
+        0  # Initialize counter for successfully uploaded files
+    )
+    total_files = 0  # Initialize counter for total files
+
     # Process each subdirectory
     for subdirectory in subdirectories:
-        process_directory(
+        result = process_directory(
             logger,
             remote_user,
             remote_ip,
@@ -750,6 +765,18 @@ def main(config, debug):
             bandwidth_mbps,
             file_sizes_dict,
         )
+        total_uploaded_files += result.get(
+            'uploaded_files', 0
+        )  # Update the count of uploaded files
+        total_files += result.get(
+            'total_files', 0
+        )  # Update the total file count
+
+    # Final log statement after processing all subdirectories
+    logger.info(
+        f'Uploading finished. {total_uploaded_files}/{total_files} '
+        f'files were successfully uploaded.'
+    )
 
 
 if __name__ == '__main__':
