@@ -709,7 +709,7 @@ def main(config, debug):
     subdirectories = list_remote_directories(
         logger, remote_user, remote_ip, base_remote_directory, directory_depth
     )
-    logger.debug(f'Rosbags subdirectories found: {len(subdirectories)}')
+    logger.info(f'Rosbags subdirectories found: {len(subdirectories)}')
     total_rosbags = 0
     total_size_bytes = 0.0
     total_estimated_time = 0.0
