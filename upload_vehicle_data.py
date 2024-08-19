@@ -69,7 +69,9 @@ def create_remote_temp_directory(
     """Create a directory on the remote machine."""
     command = f'mkdir -p {remote_directory}/temp'
     run_ssh_command(logger, remote_user, remote_ip, command)
-    logger.info(f'Created remote temporary directory: {remote_directory}/temp')
+    logger.debug(
+        f'Created remote temporary directory: {remote_directory}/temp'
+    )
 
 
 def delete_remote_temp_directory(
@@ -246,7 +248,7 @@ def get_remote_rosbags_list(logger, remote_user, remote_ip, remote_directory):
             check=True,
         )
         rosbag_list = result.stdout.splitlines()
-        logger.info(f'Found {len(rosbag_list)} rosbags on the remote machine.')
+        logger.info(f'Found {len(rosbag_list)} rosbags in the subdirectory.')
         return rosbag_list
     except subprocess.CalledProcessError as e:
         logger.error(f'Failed to list rosbags on remote machine: {e}')
@@ -375,7 +377,7 @@ def check_disk_space(
                 check=True,
             )
             available_space = int(result.stdout.strip())
-            logger.info(f'Available space: {available_space} bytes.')
+            logger.debug(f'Available space: {available_space} bytes.')
 
             # Get the file size of the rosbag on the remote machine
             file_size_cmd = (
@@ -492,9 +494,9 @@ def copy_metadata_file(
         os.path.join(cloud_upload_directory, relative_metadata_path),
     ]
     try:
+        logger.info(f'Uploading {relative_metadata_path}.')
         subprocess.run(rsync_cmd, check=True)
-        logger.info(f'Copied metadata.yaml to {cloud_upload_directory}.')
-
+        logger.debug(f'Copied metadata.yaml to {cloud_upload_directory}.')
         return True
     except subprocess.CalledProcessError as e:
         logger.error(f'Failed to copy metadata.yaml: {e}')
@@ -505,7 +507,7 @@ def read_metadata(logger, metadata_path):
     """Read the metadata.yaml file and return its contents."""
     with open(metadata_path) as file:
         metadata = yaml.safe_load(file)
-    logger.info(f'Read metadata from {metadata_path}.')
+    logger.debug(f'Read metadata from {metadata_path}.')
     return metadata
 
 
@@ -514,7 +516,7 @@ def check_and_create_local_directory(logger, directory_path):
     if not os.path.exists(directory_path):
         try:
             os.makedirs(directory_path)
-            logger.info(f'Created local directory: {directory_path}')
+            logger.debug(f'Created local directory: {directory_path}')
         except OSError as e:
             logger.error(f'Failed to create directory {directory_path}: {e}')
             raise
@@ -530,8 +532,10 @@ def process_directory(
     base_remote_directory,
     bandwidth_mbps,
     file_sizes_dict,
+    files_dict,
 ):
     """Process each directory."""
+    logging.info(f'Processing {remote_directory}')
     # Create the remote temporary directory
     create_remote_temp_directory(
         logger, remote_user, remote_ip, remote_directory
@@ -545,7 +549,7 @@ def process_directory(
             logger, remote_user, remote_ip, remote_directory
         )
         if metadata_path is None:
-            logger.error(
+            logger.warning(
                 f'metadata.yaml file not found in {remote_directory}. '
                 f'Skipping.'
             )
@@ -571,7 +575,7 @@ def process_directory(
         ):
             logger.error(
                 f'Failed to copy metadata.yaml from '
-                f'{remote_directory}. Skipping.'
+                f'{remote_directory}. Skipping file.'
             )
 
         # Read the metadata.yaml file
@@ -581,10 +585,13 @@ def process_directory(
             'relative_file_paths', None
         )
 
-        # Get the list of rosbags from the remote machine
-        rosbag_list = get_remote_rosbags_list(
-            logger, remote_user, remote_ip, remote_directory
-        )
+        # Retrieve the list of rosbags contained in the remote subdirectory
+        rosbag_list = files_dict.get(remote_directory)
+        if rosbag_list is None:
+            rosbag_list = get_remote_rosbags_list(
+                logger, remote_user, remote_ip, remote_directory
+            )
+            files_dict[remote_directory] = rosbag_list
 
         if len(rosbag_list) != len(expected_bags):
             logger.error(
@@ -622,7 +629,7 @@ def process_directory(
             f'{total_size_bytes / (1024**3):.2f} GB from {remote_directory}.'
         )
         logger.info(
-            f'Estimated total time (including compression) '
+            f'Estimated rosbags upload time (including compression) '
             f'is at least: {estimated_time_str}.'
         )
 
@@ -697,6 +704,7 @@ def main(config, debug):
     total_size_bytes = 0.0
     total_estimated_time = 0.0
     file_sizes_dict = {}
+    files_dict = {}
 
     # Compute total estimated time for all subdirectories
     for subdirectory in subdirectories:
@@ -704,6 +712,7 @@ def main(config, debug):
         rosbag_list = get_remote_rosbags_list(
             logger, remote_user, remote_ip, subdirectory
         )
+        files_dict[subdirectory] = rosbag_list
 
         # Get the size of each rosbag
         rosbag_sizes = [
@@ -764,6 +773,7 @@ def main(config, debug):
             base_remote_directory,
             bandwidth_mbps,
             file_sizes_dict,
+            files_dict,
         )
         total_uploaded_files += result.get(
             'uploaded_files', 0
