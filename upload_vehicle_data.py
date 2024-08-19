@@ -150,8 +150,6 @@ def compress_and_transfer_rosbag(
         f'compressing: \n{rosbag_path}'
     )
 
-    # Compress the rosbag on the remote machine
-    logger.info(f'Starting compression of {rosbag_path} on remote machine...')
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
     )
@@ -541,7 +539,8 @@ def process_directory(
     total_rosbags,
 ):
     """Process each directory."""
-    logger.info(f'Processing {remote_directory}')
+    logger.info('')
+    logger.info(f'Processing: {remote_directory}')
     # Create the remote temporary directory
     create_remote_temp_directory(
         logger, remote_user, remote_ip, remote_directory
