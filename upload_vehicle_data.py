@@ -541,7 +541,7 @@ def process_directory(
     total_rosbags,
 ):
     """Process each directory."""
-    logging.info(f'Processing {remote_directory}')
+    logger.info(f'Processing {remote_directory}')
     # Create the remote temporary directory
     create_remote_temp_directory(
         logger, remote_user, remote_ip, remote_directory
