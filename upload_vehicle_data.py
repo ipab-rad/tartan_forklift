@@ -23,6 +23,8 @@ def setup_logging(debug_mode):
     logger = logging.getLogger('rosbag_upload')
     logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
 
+    logger.propagate = False
+
     # Create a console handler (StreamHandler)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
@@ -128,6 +130,7 @@ def compress_and_transfer_rosbag(
     base_remote_directory,
     current_rosbag_number,
     total_rosbags,
+    global_rosbag_counter,
 ):
     """Compress rosbag on remote machine and transfer it to cloud host."""
     remote_temp_directory = f'{remote_directory}/temp'
@@ -135,7 +138,7 @@ def compress_and_transfer_rosbag(
         rosbag_path, start=base_remote_directory
     )
     # Check available disk space before compression
-    logger.info(f'Starting compression of {rosbag_path} on remote machine...')
+
     if not check_disk_space(
         logger, remote_user, remote_ip, remote_temp_directory, rosbag_path
     ):
@@ -148,6 +151,7 @@ def compress_and_transfer_rosbag(
     )
 
     # Compress the rosbag on the remote machine
+    logger.info(f'Starting compression of {rosbag_path} on remote machine...')
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
     )
@@ -187,7 +191,7 @@ def compress_and_transfer_rosbag(
     while attempts < max_upload_attempts:
         try:
             logger.info(
-                f'Uploading rosbag {current_rosbag_number}/{total_rosbags} ...'
+                f'Uploading rosbag {global_rosbag_counter}/{total_rosbags} ...'
             )
             start_time = time.time()
             subprocess.run(rsync_cmd, check=True)
@@ -533,6 +537,8 @@ def process_directory(
     bandwidth_mbps,
     file_sizes_dict,
     files_dict,
+    global_rosbag_counter,
+    total_rosbags,
 ):
     """Process each directory."""
     logging.info(f'Processing {remote_directory}')
@@ -600,6 +606,7 @@ def process_directory(
             return {
                 'uploaded_files': len(successfully_uploaded_files),
                 'total_files': total_files,
+                'global_rosbag_counter': global_rosbag_counter,
             }
 
         rosbag_sizes = file_sizes_dict[remote_directory]
@@ -652,7 +659,8 @@ def process_directory(
                     config['upload_attempts'],
                     base_remote_directory,
                     current_rosbag_number=i + 1,
-                    total_rosbags=len(rosbag_list),
+                    global_rosbag_counter=global_rosbag_counter + i + 1,
+                    total_rosbags=total_rosbags,
                 )
                 for i, rosbag in enumerate(rosbag_list)
             ]
@@ -661,6 +669,7 @@ def process_directory(
                 result = future.result()
                 if result:
                     successfully_uploaded_files.append(result)
+        global_rosbag_counter += len(successfully_uploaded_files)
 
         if config['clean_up']:
             # Only delete rosbag files that were successfully uploaded
@@ -675,6 +684,7 @@ def process_directory(
     return {
         'uploaded_files': len(successfully_uploaded_files),
         'total_files': total_files,
+        'global_rosbag_counter': global_rosbag_counter,
     }
 
 
@@ -760,6 +770,7 @@ def main(config, debug):
         0  # Initialize counter for successfully uploaded files
     )
     total_files = 0  # Initialize counter for total files
+    global_rosbag_counter = 0
 
     # Process each subdirectory
     for subdirectory in subdirectories:
@@ -774,6 +785,8 @@ def main(config, debug):
             bandwidth_mbps,
             file_sizes_dict,
             files_dict,
+            global_rosbag_counter,
+            total_rosbags,
         )
         total_uploaded_files += result.get(
             'uploaded_files', 0
@@ -781,6 +794,10 @@ def main(config, debug):
         total_files += result.get(
             'total_files', 0
         )  # Update the total file count
+
+        global_rosbag_counter = result.get(
+            'global_rosbag_counter', global_rosbag_counter
+        )  # Update the global rosbag counter
 
     # Final log statement after processing all subdirectories
     logger.info(
