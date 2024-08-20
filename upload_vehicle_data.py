@@ -258,12 +258,13 @@ def get_remote_rosbags_list(logger, remote_user, remote_ip, remote_directory):
 
 
 def list_remote_directories(
-    logger, remote_user, remote_ip, base_remote_directory, depth
+    logger, remote_user, remote_ip, base_remote_directory
 ):
-    """List directories on the remote machine up to a given depth."""
+    """List directories on the remote machine containing .mcap files."""
     list_cmd = (
         f'ssh {remote_user}@{remote_ip} '
-        f'"find {base_remote_directory} -maxdepth {depth} -mindepth 1 -type d"'
+        f'"find {base_remote_directory} -type f -name \\"*.mcap\\" '
+        f'-printf \'%h\\n\' | sort -u"'
     )
     try:
         result = subprocess.run(
@@ -275,13 +276,13 @@ def list_remote_directories(
         )
         subdirectories = result.stdout.splitlines()
         logger.info(
-            f'Listed directories up to depth {depth} in '
-            f'{base_remote_directory}'
+            f'Listed directories containing .mcap '
+            f'files in {base_remote_directory}'
         )
         return subdirectories
     except subprocess.CalledProcessError as e:
         logger.error(
-            f'Failed to list subdirectories in {base_remote_directory}: {e}'
+            f'Failed to list directories in {base_remote_directory}: {e}'
         )
         return []
 
@@ -694,9 +695,6 @@ def main(config, debug):
     remote_ip = config['remote_ip']
     base_remote_directory = config['remote_directory']
     cloud_upload_directory = config['cloud_upload_directory']
-    directory_depth = config.get(
-        'directory_depth', 1
-    )  # Default to 1 for flat structure
     logger.info('Starting rosbag upload process.')
 
     # Measure bandwidth once at the start
@@ -706,7 +704,7 @@ def main(config, debug):
         return
     #  Retrieve all subdirectories containing rosbags in the remotes directory
     subdirectories = list_remote_directories(
-        logger, remote_user, remote_ip, base_remote_directory, directory_depth
+        logger, remote_user, remote_ip, base_remote_directory
     )
     logger.info(f'Rosbags subdirectories found: {len(subdirectories)}')
     total_rosbags = 0
@@ -750,7 +748,7 @@ def main(config, debug):
         estimated_time_str = f'{seconds} seconds'
 
     logger.info(
-        f'Found {total_rosbags} files to upload '
+        f'Found {total_rosbags} rosbags (mcap) files to upload '
         f'with total size {total_size_bytes / (1024**3):.2f} GB.'
     )
     logger.info(
