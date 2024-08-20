@@ -6,4 +6,4 @@ clean_up: false
 upload_attempts: 3
 mcap_path: "/home/shikai/mcap"
 parallel_processes: 1
-directory_depth: 2
+
