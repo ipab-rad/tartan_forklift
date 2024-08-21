@@ -111,7 +111,6 @@ Replace `<path_to_yaml_config>` with the path to your YAML configuration file. U
 - `upload_attempts` (int): Number of attempts to upload each rosbag file to the cloud host (default: 3).
 - `mcap_path` (str): Path to the mcap CLI binary. Found using `which mcap` if installed.
 - `parallel_processes` (int): Number of parallel processes for compression and upload.
-- `directory_depth` (int): Depth of subdirectories to search for rosbags in the base remote directory.
 
 Example YAML configuration:
   ```yaml
@@ -123,7 +122,6 @@ Example YAML configuration:
   upload_attempts: 3
   mcap_path: "$HOME/mcap"
   parallel_processes: 1
-  directory_depth: 1
   ```
 
 ### 4. Script Workflow

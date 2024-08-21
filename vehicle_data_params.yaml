@@ -1,0 +1,8 @@
+remote_user: "seb_adm"
+remote_ip: "172.27.28.69"
+remote_directory: "/recorded_datasets/edinburgh"
+cloud_upload_directory: "/mnt/vdb/data"
+clean_up: false
+upload_attempts: 3
+mcap_path: "/home_local/seb_adm/mcap"
+parallel_processes: 1
