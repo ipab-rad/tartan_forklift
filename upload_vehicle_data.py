@@ -16,8 +16,8 @@ import yaml
 def setup_logging(debug_mode):
     """Configure logging with color support."""
     # Timestamp for the log file name
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_filename = f'upload_vehicle_data_{timestamp}.log'
+    timestamp = datetime.now().strftime('%Y_%m_%d-%H_%M_%S')
+    log_filename = f'{timestamp}_upload.log'
 
     # Create a logger
     logger = logging.getLogger('rosbag_upload')
