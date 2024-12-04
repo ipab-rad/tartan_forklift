@@ -140,3 +140,73 @@ The script logs its activities to `upload_vehicle_data_<timestamp>.log`. This lo
   - Information about the processed files.
   - Bandwidth measurements.
   - Any errors encountered during the process.
+
+## ROS2 Bag Merging Script
+
+This script automates the merging of ROS2 bag files using the `ros2 bag convert` command.
+
+The merging is based on a `.yaml` file that complies with [rosbag2](https://github.com/ros2/rosbag2?tab=readme-ov-file#converting-bags) guidelines.
+
+### Prerequisites
+
+Before running the Python script, ensure that the Docker container is set up by running the `dev.sh` script:
+
+```bash
+./dev.sh
+```
+
+**Note**: `dev.sh` will automatically mount the `/mnt/vdb/data` directory as the `rosbags` directory in the container. This is the current default SSD location on the EIDF cloud machine. Use the `-p` flag to specify a different directory.
+
+### Usage
+
+Once the Docker container is running, you can execute the Python script with the following command:
+
+```bash
+merge_rosbags.py --input <input_directory> --config <config_file.yaml> --range <start:end>
+```
+
+#### Arguments:
+- `--input <input_directory>`: The directory containing `.mcap` files to be merged.
+- `--config <config_file.yaml>`: Path to the YAML configuration file used for the merge.
+  - Please refer to the `rosbag_util` directory and `rosbag2` [Converting bags](https://github.com/ros2/rosbag2?tab=readme-ov-file#converting-bags) `README` for further reference.
+- `--range <start:end>` (optional): Range of rosbag split indices to process, in the format `start:end`.
+
+Example:
+
+If we have the following directory structure:
+
+```bash
+└── rosbags
+      ├── 2024_10_24-14_15_33_haymarket_1
+      │   ├── 2024_10_24-14_15_33_haymarket_1_0.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_1.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_2.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_3.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_4.mcap
+      ...
+```
+
+We can run the script as:
+
+```bash
+merge_rosbags.py --input ./rosbags/2024_10_24-14_15_33_haymarket_1 --range 0:2 --config ./rosbag_util/mapping_merge_params.yaml
+
+# Or omit the range to merge all available rosbags 
+merge_rosbags.py --input ./rosbags/2024_10_24-14_15_33_haymarket_1 --config ./rosbag_util/mapping_merge_params.yaml
+```
+
+The resulting merged `.mcap` file will be saved within the specified directory under a sub-directory named the same as the value of the `uri` parameter defined in the YAML file. The file name will be in the format `<current_rosbag_name>_<uri>_<from-to>`. If no range is specified, the name will be `<current_rosbag_name>_<suffix>`.
+
+```bash
+└── rosbags
+      ├── 2024_10_24-14_15_33_haymarket_1
+      │   ├── 2024_10_24-14_15_33_haymarket_1_0.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_1.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_2.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_3.mcap
+      │   ├── 2024_10_24-14_15_33_haymarket_1_4.mcap
+      │   └── mapping
+              ├── 2024_10_24-14_15_33_haymarket_mapping_0-2.mcap
+              └── 2024_10_24-14_15_33_haymarket_mapping.mcap # Larger file
+      ...
+```
