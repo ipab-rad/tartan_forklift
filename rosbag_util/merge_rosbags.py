@@ -14,9 +14,9 @@ def sort_by_numeric_suffix(files):
         return int(match.group(1)) if match else float('inf')  # Non-matching files go to the end
     return sorted(files, key=extract_number)
 
-def convert_rosbags(input_dir: str, yaml_file_path: str, range_str: str = None):
+def merge_rosbags(input_dir: str, yaml_file_path: str, range_str: str = None):
     """
-    Automates the conversion of ROS2 bag files using the ros2 bag convert command.
+    Automates the merging of ROS2 bag files using the ros2 bag convert command.
 
     Args:
         input_dir (str): Path to the directory containing .mcap files.
@@ -119,7 +119,7 @@ def main():
     args = parser.parse_args()
 
     # Call the conversion function with parsed arguments
-    convert_rosbags(args.input, args.config, args.range)
+    merge_rosbags(args.input, args.config, args.range)
 
 if __name__ == "__main__":
     main()
