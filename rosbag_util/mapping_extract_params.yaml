@@ -6,7 +6,7 @@ output_bags:
   storage_preset_profile: ""
   storage_config_uri: ""
   all_topics: false
-  topics: [/sensor/lidar/top/points, /sensor/imu/front/data, /sensor/imu/rear/data, /sensor/gps/nav_sat_fix, /tf_static]
+  topics: [/sensor/lidar/top/points, /sensor/imu/front/data, /sensor/imu/rear/data, /sensor/gps/nav_sat_fix, /vehicle/twist, /tf_static]
   topic_types: []
   all_services: false
   services: []
