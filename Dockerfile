@@ -49,6 +49,12 @@ COPY rosbag_util $ROS_WS/rosbag_util
 # Come back to ros_ws
 WORKDIR $ROS_WS
 
+# Copy scripts
+COPY rosbag_util $ROS_WS/rosbag_util
+
+# Add scripts to PATH
+RUN echo "export PATH=$ROS_WS/rosbag_util:$PATH " >> /etc/bash.bashrc
+
 # Create username
 ARG USER_ID
 ARG GROUP_ID

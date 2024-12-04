@@ -191,7 +191,7 @@ We can run the script as:
 ```bash
 merge_rosbags.py --input ./rosbags/2024_10_24-14_15_33_haymarket_1 --range 0:2 --config ./rosbag_util/mapping_merge_params.yaml
 
-# Or omit the range to merge all available rosbags 
+# Or omit the range to merge all available rosbags
 merge_rosbags.py --input ./rosbags/2024_10_24-14_15_33_haymarket_1 --config ./rosbag_util/mapping_merge_params.yaml
 ```
 

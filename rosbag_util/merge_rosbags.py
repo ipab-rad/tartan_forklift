@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Utility script for merging ROS2 bag (.mcap) files.
 
