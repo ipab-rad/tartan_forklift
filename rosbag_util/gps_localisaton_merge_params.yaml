@@ -5,9 +5,6 @@ output_bags:
   # max_bagfile_duration: 0
   storage_preset_profile: ""
   storage_config_uri: ""
-  all_topics: false
-  topics: [/sensor/camera/fsp_l/image_rect_color/compressed, /sensor/camera/fsp_l/camera_info, /sensor/imu/front/data, /sensor/imu/rear/data, 
-    /sensor/gps/nav_sat_fix, /sensor/gps/bestpos, /sensor/gps/bestvel, /vehicle/gps/fix, /vehicle/twist, /tf_static]
   topic_types: []
   all_services: false
   services: []
@@ -23,3 +20,17 @@ output_bags:
   compression_threads: 0
   include_hidden_topics: false
   include_unpublished_topics: false
+  all_topics: false
+  topics:
+    - /sensor/camera/fsp_l/image_rect_color/compressed
+    - /sensor/camera/fsp_l/camera_info
+    - /sensor/imu/front/data
+    - /sensor/imu/rear/data
+    - /sensor/gps/nav_sat_fix
+    - /sensor/gps/bestpos
+    - /sensor/gps/bestvel
+    - /vehicle/gps/fix
+    - /sensor/gps/dual_antenna_heading
+    - /sensor/gps/heading2
+    - /vehicle/twist
+    - /tf_static
