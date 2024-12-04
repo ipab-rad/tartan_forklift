@@ -21,9 +21,9 @@ output_bags:
   include_hidden_topics: false
   include_unpublished_topics: false
   all_topics: false
-  topics: 
+  topics:
     - /sensor/lidar/top/points
-    - /sensor/imu/front/data 
+    - /sensor/imu/front/data
     - /sensor/imu/rear/data
     - /sensor/gps/nav_sat_fix
     - /sensor/gps/dual_antenna_heading
