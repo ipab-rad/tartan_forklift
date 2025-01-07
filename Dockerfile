@@ -52,8 +52,9 @@ WORKDIR $ROS_WS
 # Copy scripts
 COPY rosbag_util $ROS_WS/rosbag_util
 
-# Add scripts to PATH
-RUN echo "export PATH=$ROS_WS/rosbag_util:$PATH " >> /etc/bash.bashrc
+# Add scripts to PATH and source ros
+RUN echo "export PATH=$ROS_WS/rosbag_util:$PATH " >> /etc/bash.bashrc &&\
+    echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> /etc/bash.bashrc
 
 # Create username
 ARG USER_ID
