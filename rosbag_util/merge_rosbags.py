@@ -30,7 +30,7 @@ def sort_by_numeric_suffix(files):
     """
 
     def extract_number(file):
-        match = re.search(r'_(\d+)\.mcap$", file')
+        match = re.search(r'_(\d+)\.mcap$', file)
         return (
             int(match.group(1)) if match else float('inf')
         )  # Non-matching files go to the end
