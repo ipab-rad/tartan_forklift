@@ -38,6 +38,47 @@ def sort_by_numeric_suffix(files):
     return sorted(files, key=extract_number)
 
 
+def create_temp_yaml(input_rosbag_dir, yaml_file):
+    """
+    Modify 'uri' in a YAML file and save to a temporary file.
+
+    Args:
+        input_rosbag_dir (str): Directory to prepend to 'uri' values.
+        yaml_file (str): Path to the original YAML file.
+
+    Returns:
+        list: [bool, str] - Success status and path to the
+                            temporary file or an
+                            empty string on error.
+    """
+    with open(yaml_file) as file:
+        data = yaml.safe_load(file)
+
+    # Modify the 'uri' parameter
+    if 'output_bags' in data:
+        for entry in data['output_bags']:
+            if 'uri' in entry:
+                entry['uri'] = os.path.join(input_rosbag_dir, entry['uri'])
+
+    # Create a temporary file in the current directory
+    tmp_yaml_path = os.path.join(
+        input_rosbag_dir, 'ros2_convert_temp_params.yaml'
+    )
+
+    try:
+        with open(tmp_yaml_path, 'w') as temp_file:
+            yaml.dump(data, temp_file, default_flow_style=False)
+
+    except FileNotFoundError as e:
+        print(f'Error: File not found - {e}')
+        return [False, '']
+    except yaml.YAMLError as e:
+        print(f'Error: Failed to parse YAML - {e}')
+        return [False, '']
+
+    return [True, tmp_yaml_path]
+
+
 def merge_rosbags(input_dir: str, yaml_file_path: str, range_str: str = None):
     """
     Automates the merging of ROS2 bag files using the ros2 bag convert command.
@@ -87,6 +128,8 @@ def merge_rosbags(input_dir: str, yaml_file_path: str, range_str: str = None):
         print(f'No files in the specified range: {range_str}')
         return
 
+    ok_status, temp_param_yaml = create_temp_yaml(input_dir, yaml_file_path)
+
     # Construct the ros2 bag convert command
     command = ['ros2', 'bag', 'convert']
 
@@ -95,8 +138,12 @@ def merge_rosbags(input_dir: str, yaml_file_path: str, range_str: str = None):
         print(mcap_file)
         command.extend(['--input', mcap_file])
 
-    # Add the storage_id and output-options
-    command.extend(['mcap', '--output-options', yaml_file_path])
+    # Add the YAML file location
+    command.extend(['mcap', '--output-options', temp_param_yaml])
+
+    if not ok_status:
+        print('There was an error creating a temp yaml, aborting...')
+        return
 
     # Execute the command
     try:
@@ -112,28 +159,37 @@ def merge_rosbags(input_dir: str, yaml_file_path: str, range_str: str = None):
             f'{elapsed_time:.2f} seconds'
         )
 
+        range_subfix = ''
+        if range_str:
+            range_subfix = f'_{start}-{end}'
+
+        # Obtain rosbag base name from one of the .mcap files
+        base_name = mcap_files[0].rsplit('/', -1)[-1]
+        base_name = base_name.rsplit('_', 1)[0]
+
+        # print(f'Bag base name: {base_name}')
+        new_bag_file_name = (
+            base_name + '_' + output_bag_name + range_subfix + '.mcap'
+        )
+
+        new_bag_file_path = os.path.join(
+            input_dir, output_bag_name, new_bag_file_name
+        )
+
         # Rename rosbag for consistency
         output_bag_file_path = os.path.join(
             input_dir, output_bag_name, output_bag_name + '_0.mcap'
         )
 
-        range_subfix = ''
-        if range_str:
-            range_subfix = f'_{start}-{end}'
-        base_name = mcap_files[0].rsplit('_', 1)[0]
-        new_bag_file_name = (
-            base_name + '_' + output_bag_name + range_subfix + '.mcap'
-        )
-        new_bag_file_path = os.path.join(
-            input_dir, output_bag_name, new_bag_file_name
-        )
-
-        # Rename generated bag
         shutil.move(output_bag_file_path, new_bag_file_path)
 
         print(f'Saved as: {new_bag_file_path}')
     except subprocess.CalledProcessError as e:
         print(f'Error during conversion: {e}')
+
+    # Ensure the temp yaml file is deleted afterwards
+    if os.path.exists(temp_param_yaml):
+        os.remove(temp_param_yaml)
 
 
 def main():
