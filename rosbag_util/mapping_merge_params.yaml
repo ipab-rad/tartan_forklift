@@ -28,5 +28,17 @@ output_bags:
     - /sensor/gps/nav_sat_fix
     - /sensor/gps/dual_antenna_heading
     - /sensor/gps/heading2
+    - /vehicle/steering_report
+    - /vehicle/wheel_speed_report
+    - /vehicle/dbw_enabled
+    - /vehicle/misc_1_report
+    - /vehicle/tire_pressure_report
+    - /vehicle/fuel_level_report
+    - /vehicle/brake_report
+    - /vehicle/wheel_position_report
+    - /vehicle/gear_report
     - /vehicle/twist
+    - /vehicle/brake_info_report
+    - /vehicle/throttle_info_report
+    - /vehicle/throttle_report
     - /tf_static
