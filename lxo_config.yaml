@@ -1,5 +1,5 @@
 remote_user: "lxo"
-remote_ip: "172.27.28.69"
+remote_ip: "129.215.117.145"
 remote_directory: "/recorded_datasets/edinburgh"
 cloud_upload_directory: "/mnt/vdb/data"
 clean_up: false
