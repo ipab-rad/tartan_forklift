@@ -176,10 +176,9 @@ def compress_and_transfer_rosbag(
     # Transfer the compressed file to the cloud host
     rsync_cmd = [
         'rsync',
-        '-av',
+        '-a',
         '--checksum',
         '--progress',
-        '--stats',
         f'{remote_user}@{remote_ip}:{remote_compressed_path}',
         os.path.join(cloud_upload_directory, relative_bag_path),
     ]
@@ -489,10 +488,9 @@ def copy_metadata_file(
     )
     rsync_cmd = [
         'rsync',
-        '-av',
+        '-a',
         '--checksum',
         '--progress',
-        '--stats',
         f'{remote_user}@{remote_ip}:{metadata_path}',
         os.path.join(cloud_upload_directory, relative_metadata_path),
     ]
