@@ -1,0 +1,8 @@
+remote_user: "hector"
+remote_ip: "172.31.0.100"
+remote_directory: "/media/hector/main/test_rosbags"
+cloud_upload_directory: "/home/hector/rosbags"
+clean_up: false
+upload_attempts: 3
+mcap_path: "/home/lxo/mcap"
+parallel_processes: 5

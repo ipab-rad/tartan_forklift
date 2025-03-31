@@ -10,70 +10,72 @@ from ftplib import FTP
 
 
 class RosbagsDownloader:
-    
+
     def __init__(self, config: dict):
         self.remote_user = config['remote_user']
         self.remote_hostname = config['remote_ip']
         self.remote_directory = config['remote_directory']
         self.host_directory = config['cloud_upload_directory']
-        
+
         self.files_size_dict = {}
         try:
-            self.ftp  = FTP(self.remote_hostname)
-            pwd = 'my_pwd'
+            self.ftp = FTP(self.remote_hostname)
+            pwd = 'mypwd'
             self.ftp.login(user=self.remote_user, passwd=pwd)
-        
+
             # Change to the desired directory
             self.ftp.cwd(self.remote_directory)
-            
-                
+
         except Exception as e:
             print(f'[✖] FTP connection failed: {e}')
 
-    
     def ftp_file(self, file_path):
-        
-        relative_file_path = os.path.relpath(file_path, start=self.remote_directory)
 
-        host_destination = os.path.join(self.host_directory, relative_file_path)
-        
+        relative_file_path = os.path.relpath(
+            file_path, start=self.remote_directory
+        )
+        host_destination = os.path.join(
+            self.host_directory, relative_file_path
+        )
+
         # Make sure the local directory exists
         os.makedirs(os.path.dirname(host_destination), exist_ok=True)
-        
+
         try:
             print(f'[+] Starting FTP transfer: {relative_file_path}')
-            
             with open(host_destination, 'wb') as f:
                 self.ftp.retrbinary(f'RETR {relative_file_path}', f.write)
 
-
         except Exception as e:
             print(f'[✖] FTP upload failed for {relative_file_path}: {e}')
-            
-            
-    def rsync_file(self, file_path):        
+
+    def rsync_file(self, file_path):
         remote_file = f'{self.remote_user}@{self.remote_hostname}:{file_path}'
-        relative_file_path = os.path.relpath(file_path, start=self.remote_directory)
-        host_destination = os.path.join(self.host_directory, relative_file_path)
-        
+        relative_file_path = os.path.relpath(
+            file_path, start=self.remote_directory
+        )
+        host_destination = os.path.join(
+            self.host_directory, relative_file_path
+        )
+
         os.makedirs(os.path.dirname(host_destination), exist_ok=True)
 
         cmd = [
             'rsync',
             '-a',
-            '--no-i-r',     
+            '--no-i-r',
             '--info=progress2',
             '--whole-file',
             '--no-compress',
             remote_file,
-            host_destination
+            host_destination,
         ]
 
         try:
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             print(f'[✖] Failed: {file_path}\n{e}')
-    
+
     def get_remote_file_size(self, remote_abs_file_path) -> int:
         ssh_target = f'{self.remote_user}@{self.remote_hostname}'
         cmd = ['ssh', ssh_target, f'stat -c%s {remote_abs_file_path}']
@@ -87,11 +89,11 @@ class RosbagsDownloader:
         except ValueError:
             print('[Error] Failed to parse file size from SSH output.')
             return None
-        
+
     def get_remote_files_sizes(self) -> dict:
-        'Get the sizes of all files in a remote directory.'
+        '''Get the sizes of all files in a remote directory.'''
         ssh_target = f'{self.remote_user}@{self.remote_hostname}'
-        find_cmd = f'find {self.remote_directory} -type f -name '*.mcap''
+        find_cmd = f'find {self.remote_directory} -type f -name \'*.mcap\''
         cmd = ['ssh', ssh_target, find_cmd]
         try:
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
@@ -105,23 +107,20 @@ class RosbagsDownloader:
         except subprocess.CalledProcessError as e:
             print(f'[Error] SSH command failed: {e.output.decode().strip()}')
             return []
-        
+
     def get_rosbags_files(self, directory: Path):
-        
         # Recursively find all .mcap files
         mcap_files = list(directory.rglob('*.mcap'))
-
         # Convert to string paths if needed
         mcap_file_paths = [str(path) for path in mcap_files]
-        
         return mcap_file_paths
-    
+
     def get_remote_rosbags_list(self, remote_directory):
-        'Get a list of all rosbags on the remote machine.'
-        list_cmd = f'find {remote_directory} -name '*.mcap''
+        '''Get a list of all rosbags on the remote machine.'''
+        list_cmd = f'find {remote_directory} -name \'*.mcap\' | sort -V'
         try:
             result = subprocess.run(
-                f'ssh {self.remote_user}@{self.remote_hostname} ' f''{list_cmd}'',
+                f'ssh {self.remote_user}@{self.remote_hostname} \'{list_cmd}\'',
                 shell=True,
                 capture_output=True,
                 text=True,
@@ -134,11 +133,10 @@ class RosbagsDownloader:
             raise
 
     def get_remote_directories(self, remote_directory):
-        'List directories on the remote machine containing .mcap files.'
+        '''List directories on the remote machine containing .mcap files.'''
         list_cmd = (
             f'ssh {self.remote_user}@{self.remote_hostname} '
-            f''find {remote_directory} -type f -name \\'*.mcap\\' '
-            f'-printf \'%h\\n\' | sort -u''
+            f'"find {remote_directory} -type f -name \'*.mcap\' -printf \'%h\\n\' | sort -u"'
         )
         try:
             result = subprocess.run(
@@ -151,36 +149,37 @@ class RosbagsDownloader:
             subdirectories = result.stdout.splitlines()
             return subdirectories
         except subprocess.CalledProcessError as e:
-            print(
-                f'Failed to list directories in {remote_directory}: {e}'
-            )
+            print(f'Failed to list directories in {remote_directory}: {e}')
             return []
-    
-    def main(self, number_workers) -> None:
 
-        print(f'Searching for .mcap files in:\n\t{self.remote_user}@{self.remote_hostname}:{self.remote_directory}')
-        # rosbags_list = self.get_rosbags_files(rosbag_directory)
-        rosbags_directories = self.get_remote_directories(self.remote_directory)
-        print(f'Found {len(rosbags_directories)} directories containing rosbags files:')
+    def main(self, number_workers) -> None:
+        print(
+            f'Searching for .mcap files in:\n\t{self.remote_user}@{self.remote_hostname}:{self.remote_directory}'
+        )
+        rosbags_directories = self.get_remote_directories(
+            self.remote_directory
+        )
+        print(
+            f'Found {len(rosbags_directories)} directories containing rosbags files:'
+        )
         print('\n'.join(rosbags_directories))
-        
-        # return
+
         print('Extracting file sizes...')
         self.files_size_dict = self.get_remote_files_sizes()
         for key, value in self.files_size_dict.items():
             print(f'{key}: {value}')
-        # Debug
+
         counter = 0
-        max_downloads = 3
+        max_downloads = 5
         exit = False
-        
+
         total_downloading_time = 0
         total_files_size = 0
-        for rosbag_directory in rosbags_directories:           
+        for rosbag_directory in rosbags_directories:
             print(f'\nProcessing directory: {rosbag_directory}')
             rosbags_list = self.get_remote_rosbags_list(rosbag_directory)
             print(f'\tFound {len(rosbags_list)} rosbags in the directory')
-            
+
             for rosbag in rosbags_list:
                 if counter >= max_downloads:
                     print(f'Max downloads reached: {max_downloads}')
@@ -188,31 +187,37 @@ class RosbagsDownloader:
                     break
                 print(f'Downloading {rosbag}...')
                 start_time = time.time()
-                self.rsync_file(rosbag)
-                # self.ftp_file(rosbag)
+                # self.rsync_file(rosbag)
+                self.ftp_file(rosbag)
                 elapsed_time = time.time() - start_time
                 total_downloading_time += elapsed_time
-                
+
                 rosbag_size = self.files_size_dict[rosbag]
                 total_files_size += rosbag_size
                 # Compute transfer speed in MB/s
-                avg_transfer_speed = (rosbag_size/  (1024 * 1024)) / elapsed_time
-                print(f'\t File transfered in {elapsed_time:.2f} sec at {avg_transfer_speed:.2f} MB/s (average)\n')
+                avg_transfer_speed = (
+                    rosbag_size / (1024 * 1024)
+                ) / elapsed_time
+                print(
+                    f'\t File transferred in {elapsed_time:.2f} sec at {avg_transfer_speed:.2f} MB/s (average)\n'
+                )
                 counter += 1
-                
+
             if exit:
                 break
 
-        
-        avg_transfer_speed = (total_files_size/ (1024 * 1024)) / total_downloading_time
-        print(f'✅ {counter} rosbags were uploaded in {total_downloading_time:.2f} sec at {avg_transfer_speed:.2f} MB/s (average)')
-        
-        if self.ftp:
+        avg_transfer_speed = (
+            total_files_size / (1024 * 1024)
+        ) / total_downloading_time
+        print(
+            f'✅ {counter} rosbags were uploaded in {total_downloading_time:.2f} sec at {avg_transfer_speed:.2f} MB/s (average)'
+        )
+
+        if hasattr(self, 'ftp') and self.ftp:
             try:
                 self.ftp.quit()
             except Exception as e:
                 print(f'Error closing FTP session: {e}')
-
 
 
 if __name__ == '__main__':
@@ -225,22 +230,12 @@ if __name__ == '__main__':
         default='vehicle_data_params.yaml',
         help='Path to the YAML configuration file',
     )
-   
     parser.add_argument(
         '-n',
         '--parallel-workers',
         default=1,
         help='Number of workers to do the parallel sending',
     )
-        
-    # parser.add_argument(
-    #     '-p',
-    #     '--directory',
-    #     default=1,
-    #     help='Number of workers to do the parallel sending',
-    # )
-    
-    
     parser.add_argument(
         '-d',
         '--debug',
@@ -251,6 +246,6 @@ if __name__ == '__main__':
 
     with open(args.config) as file:
         config = yaml.safe_load(file)
-    
+
     send_tester = RosbagsDownloader(config)
     send_tester.main(int(args.parallel_workers))
