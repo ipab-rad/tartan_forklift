@@ -75,7 +75,6 @@ class RosbagsDownloader:
         cmd = [
             'rsync',
             '-a',
-            '--no-i-r',
             '--info=progress2',
             '--whole-file',
             '--no-compress',
