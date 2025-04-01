@@ -11,23 +11,35 @@ from ftplib import FTP
 
 class RosbagsDownloader:
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, use_ftp: bool, output_directory: str):
         self.remote_user = config['remote_user']
         self.remote_hostname = config['remote_ip']
         self.remote_directory = config['remote_directory']
         self.host_directory = config['cloud_upload_directory']
+        
+        # Override host directory if another output directory is provided
+        if output_directory != '':
+            self.host_directory = output_directory
 
+        print(f'Using output directory: {self.host_directory}')
+        transfer_method = 'FTP' if use_ftp else 'rsync'
+        print(f'Using {transfer_method} for file transfer')
+        
         self.files_size_dict = {}
-        try:
-            self.ftp = FTP(self.remote_hostname)
-            pwd = 'mypwd'
-            self.ftp.login(user=self.remote_user, passwd=pwd)
+        
+        self.ftp = None
+        self.use_ftp = use_ftp
+        if use_ftp:
+            try:
+                self.ftp = FTP(self.remote_hostname)
+                pwd = 'mypwd'
+                self.ftp.login(user=self.remote_user, passwd=pwd)
 
-            # Change to the desired directory
-            self.ftp.cwd(self.remote_directory)
+                # Change to the desired directory
+                self.ftp.cwd(self.remote_directory)
 
-        except Exception as e:
-            print(f'[✖] FTP connection failed: {e}')
+            except Exception as e:
+                print(f'[✖] FTP connection failed: {e}')
 
     def ftp_file(self, file_path):
 
@@ -187,8 +199,10 @@ class RosbagsDownloader:
                     break
                 print(f'Downloading {rosbag}...')
                 start_time = time.time()
-                # self.rsync_file(rosbag)
-                self.ftp_file(rosbag)
+                if self.use_ftp:
+                    self.ftp_file(rosbag)
+                else:  
+                    self.rsync_file(rosbag)
                 elapsed_time = time.time() - start_time
                 total_downloading_time += elapsed_time
 
@@ -231,6 +245,17 @@ if __name__ == '__main__':
         help='Path to the YAML configuration file',
     )
     parser.add_argument(
+        '--use-ftp',
+        action='store_true',
+        help='Whether to use FTP or rsync for file transfer',
+    )
+    parser.add_argument(
+        '-o',
+        '--output',
+        default='',
+        help='Output directory to save the downloaded files',
+    )    
+    parser.add_argument(
         '-n',
         '--parallel-workers',
         default=1,
@@ -247,5 +272,5 @@ if __name__ == '__main__':
     with open(args.config) as file:
         config = yaml.safe_load(file)
 
-    send_tester = RosbagsDownloader(config)
+    send_tester = RosbagsDownloader(config, args.use_ftp, args.output)
     send_tester.main(int(args.parallel_workers))
