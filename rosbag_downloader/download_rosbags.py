@@ -30,16 +30,17 @@ class RosbagsDownloader:
         self.ftp = None
         self.use_ftp = use_ftp
         if use_ftp:
-            try:
-                self.ftp = FTP(self.remote_hostname)
-                pwd = 'mypwd'
-                self.ftp.login(user=self.remote_user, passwd=pwd)
+            pass
+            # try:
+            #     self.ftp = FTP(self.remote_hostname)
+            #     pwd = 'mypwd'
+            #     self.ftp.login(user=self.remote_user, passwd=pwd)
 
-                # Change to the desired directory
-                self.ftp.cwd(self.remote_directory)
+            #     # Change to the desired directory
+            #     self.ftp.cwd(self.remote_directory)
 
-            except Exception as e:
-                print(f'[✖] FTP connection failed: {e}')
+            # except Exception as e:
+            #     print(f'[✖] FTP connection failed: {e}')
 
     def ftp_file(self, file_path):
 
@@ -60,6 +61,56 @@ class RosbagsDownloader:
 
         except Exception as e:
             print(f'[✖] FTP upload failed for {relative_file_path}: {e}')
+
+
+    def lftp_file(self, file_path):
+        """
+        Downloads a file from an FTP server using lftp and parallel segmented download.
+        
+        Arguments:
+        - file_path: Absolute path to the file on the remote FTP server.
+        """
+
+        # Preserve local directory structure relative to remote_directory
+        relative_file_path = os.path.relpath(file_path, start=self.remote_directory)
+        host_destination = os.path.join(self.host_directory, relative_file_path)
+
+        # Ensure the local directory exists
+        os.makedirs(os.path.dirname(host_destination), exist_ok=True)
+
+        # Number of segments (defaults to 4 if not set)
+        threads = getattr(self, "ftp_threads", 4)
+
+        self.remote_password = 'mypwd'        
+        command = (
+            f'lftp -u "{self.remote_user},{self.remote_password}" {self.remote_hostname} '
+            f'-e "pget -n {threads} \\"{file_path}\\" -o \\"{host_destination}\\"; bye"'
+        )
+
+        try:
+            print(f"[+] Starting FTP transfer with lftp: {relative_file_path}")
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+
+            for line in process.stdout:
+                print(f"[lftp] {line.strip()}")
+
+            process.wait()
+
+            if process.returncode != 0:
+                print(f"[✖] lftp failed with code {process.returncode}")
+            # else:
+                # print(f"[✓] Download complete: {relative_file_path}")
+
+        except Exception as e:
+            print(f"[✖] lftp download failed for {file_path}: {e}")
+
+
 
     def rsync_file(self, file_path):
         remote_file = f'{self.remote_user}@{self.remote_hostname}:{file_path}'
@@ -199,7 +250,8 @@ class RosbagsDownloader:
                 print(f'Downloading {rosbag}...')
                 start_time = time.time()
                 if self.use_ftp:
-                    self.ftp_file(rosbag)
+                    # self.ftp_file(rosbag)
+                    self.lftp_file(rosbag)
                 else:  
                     self.rsync_file(rosbag)
                 elapsed_time = time.time() - start_time
