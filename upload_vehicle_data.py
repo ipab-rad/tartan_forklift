@@ -126,6 +126,7 @@ def compress_and_transfer_rosbag(
     remote_directory,
     cloud_upload_directory,
     mcap_path,
+    compression_chunk_size,
     max_upload_attempts,
     base_remote_directory,
     current_rosbag_number,
@@ -153,9 +154,13 @@ def compress_and_transfer_rosbag(
     remote_compressed_path = os.path.join(
         remote_temp_directory, os.path.basename(rosbag_path)
     )
+
     compress_cmd = (
-        f'{mcap_path} compress {rosbag_path} -o {remote_compressed_path}'
+        f'{mcap_path} compress {rosbag_path}'
+        f'--chunk-size {compression_chunk_size} '
+        f'-o {remote_compressed_path}'
     )
+
     try:
         start_time = time.time()
         run_ssh_command(logger, remote_user, remote_ip, compress_cmd)
@@ -654,6 +659,7 @@ def process_directory(
                     remote_directory,
                     cloud_upload_directory,
                     config['mcap_path'],
+                    config['mcap_compression_chunk_size'],
                     config['upload_attempts'],
                     base_remote_directory,
                     current_rosbag_number=i + 1,
@@ -686,8 +692,70 @@ def process_directory(
     }
 
 
-def main(config, debug):
+def validate_config(config: dict):
+    """Validate the configuration parameters."""
+    required_keys = [
+        'remote_user',
+        'remote_ip',
+        'remote_directory',
+        'cloud_upload_directory',
+        'clean_up',
+        'upload_attempts',
+        'mcap_path',
+        'mcap_compression_chunk_size',
+        'parallel_processes',
+    ]
+
+    missing_keys = [key for key in required_keys if key not in config]
+    if missing_keys:
+        raise KeyError(
+            f'Missing YAML configuration parameters: {missing_keys}'
+        )
+
+    if (
+        not isinstance(config['remote_user'], str)
+        or not config['remote_user'].strip()
+    ):
+        raise ValueError('"remote_user" must be a string and non-empty.')
+
+    if not config['remote_ip'].strip():
+        raise ValueError('"remote_ip" must be non-empty.')
+
+    if not os.path.isabs(config['remote_directory']):
+        raise ValueError('"remote_directory" must be an absolute path.')
+
+    if not os.path.isabs(config['cloud_upload_directory']):
+        raise ValueError('"cloud_upload_directory" must be an absolute path.')
+
+    if not os.path.isabs(config['mcap_path']):
+        raise ValueError('"mcap_path" must be an absolute path.')
+
+    if (
+        not isinstance(config['upload_attempts'], int)
+        or config['upload_attempts'] <= 0
+    ):
+        raise ValueError('"upload_attempts" must be a positive integer.')
+
+    if (
+        not isinstance(config['parallel_processes'], int)
+        or config['parallel_processes'] <= 0
+    ):
+        raise ValueError('"parallel_processes" must be a positive integer.')
+
+    if (
+        not isinstance(config['mcap_compression_chunk_size'], int)
+        or config['mcap_compression_chunk_size'] <= 0
+    ):
+        raise ValueError(
+            '"mcap_compression_chunk_size" must be a positive integer.'
+        )
+
+
+def main(config: dict, debug: bool):
     """Automate the upload of rosbags."""
+    # This funttion throws an exception if the config is invalid
+    validate_config(config)
+
     logger = setup_logging(debug)
     remote_user = config['remote_user']
     remote_ip = config['remote_ip']
