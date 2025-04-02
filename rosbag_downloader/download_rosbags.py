@@ -21,6 +21,8 @@ class RosbagsDownloader:
         if output_directory != '':
             self.host_directory = output_directory
 
+        self.remote_password = 'mypwd'        
+
         print(f'Using output directory: {self.host_directory}')
         transfer_method = 'FTP' if use_ftp else 'rsync'
         print(f'Using {transfer_method} for file transfer')
@@ -81,7 +83,6 @@ class RosbagsDownloader:
         # Number of segments (defaults to 4 if not set)
         threads = getattr(self, "ftp_threads", 4)
 
-        self.remote_password = 'mypwd'        
         command = (
             f'lftp -u "{self.remote_user},{self.remote_password}" {self.remote_hostname} '
             f'-e "pget -n {threads} \\"{file_path}\\" -o \\"{host_destination}\\"; bye"'
