@@ -11,7 +11,7 @@ from ftplib import FTP
 
 class RosbagsDownloader:
 
-    def __init__(self, config: dict, use_ftp: bool, output_directory: str):
+    def __init__(self, config: dict, use_ftp: bool, ftp_password: str,ftp_parallel_workers: int,  output_directory: str):
         self.remote_user = config['remote_user']
         self.remote_hostname = config['remote_ip']
         self.remote_directory = config['remote_directory']
@@ -21,11 +21,13 @@ class RosbagsDownloader:
         if output_directory != '':
             self.host_directory = output_directory
 
-        self.remote_password = 'mypwd'        
+        self.lftp_threads = ftp_parallel_workers
+        self.remote_password = ftp_password
 
         print(f'Using output directory: {self.host_directory}')
         transfer_method = 'FTP' if use_ftp else 'rsync'
         print(f'Using {transfer_method} for file transfer')
+        print(f'\t Ftp parallel workers: {self.lftp_threads}')
         
         self.files_size_dict = {}
         
@@ -80,12 +82,9 @@ class RosbagsDownloader:
         # Ensure the local directory exists
         os.makedirs(os.path.dirname(host_destination), exist_ok=True)
 
-        # Number of segments (defaults to 4 if not set)
-        threads = getattr(self, "ftp_threads", 4)
-
         command = (
             f'lftp -u "{self.remote_user},{self.remote_password}" {self.remote_hostname} '
-            f'-e "pget -n {threads} \\"{file_path}\\" -o \\"{host_destination}\\"; bye"'
+            f'-e "pget -n {self.lftp_threads} \\"{file_path}\\" -o \\"{host_destination}\\"; bye"'
         )
 
         try:
@@ -215,7 +214,7 @@ class RosbagsDownloader:
             print(f'Failed to list directories in {remote_directory}: {e}')
             return []
 
-    def main(self, number_workers) -> None:
+    def main(self) -> None:
         print(
             f'Searching for .mcap files in:\n\t{self.remote_user}@{self.remote_hostname}:{self.remote_directory}'
         )
@@ -264,8 +263,11 @@ class RosbagsDownloader:
                 avg_transfer_speed = (
                     rosbag_size / (1024 * 1024)
                 ) / elapsed_time
+                
+                avg_trasfer_speed_gbps= avg_transfer_speed / 125.0
+                
                 print(
-                    f'\t File transferred in {elapsed_time:.2f} sec at {avg_transfer_speed:.2f} MB/s (average)\n'
+                    f'\t File transferred in {elapsed_time:.2f} sec at {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s ) average \n'
                 )
                 counter += 1
 
@@ -275,8 +277,11 @@ class RosbagsDownloader:
         avg_transfer_speed = (
             total_files_size / (1024 * 1024)
         ) / total_downloading_time
+        
+        avg_trasfer_speed_gbps= avg_transfer_speed / 125.0
+        
         print(
-            f'✅ {counter} rosbags were uploaded in {total_downloading_time:.2f} sec at {avg_transfer_speed:.2f} MB/s (average)'
+            f'✅ {counter} rosbags were uploaded in {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s ) average'
         )
 
         if hasattr(self, 'ftp') and self.ftp:
@@ -302,17 +307,22 @@ if __name__ == '__main__':
         help='Whether to use FTP or rsync for file transfer',
     )
     parser.add_argument(
+        '--ftp-password',
+        default='mypwd',
+        help='If --use-ftp is set, the password to use for FTP connection',
+    ) 
+    parser.add_argument(
+        '-n',
+        '--ftp-parallel-workers',
+        default=4,
+        help='If --use-ftp is set, the number of parallel workers to use for FTP transfer',
+    )
+    parser.add_argument(
         '-o',
         '--output',
         default='',
         help='Output directory to save the downloaded files',
-    )    
-    parser.add_argument(
-        '-n',
-        '--parallel-workers',
-        default=1,
-        help='Number of workers to do the parallel sending',
-    )
+    )   
     parser.add_argument(
         '-d',
         '--debug',
@@ -324,5 +334,5 @@ if __name__ == '__main__':
     with open(args.config) as file:
         config = yaml.safe_load(file)
 
-    send_tester = RosbagsDownloader(config, args.use_ftp, args.output)
-    send_tester.main(int(args.parallel_workers))
+    send_tester = RosbagsDownloader(config, args.use_ftp, args.ftp_password, int(args.ftp_parallel_workers), args.output)
+    send_tester.main()
