@@ -21,14 +21,14 @@ class RosbagsDownloader:
         self.lftp_threads = ftp_parallel_workers
         self.remote_password = ftp_password
 
-        print(f'Using output directory: {self.host_directory}')
+        print(f'\nOutput directory: {self.host_directory}')
         meta= ''
         if use_ftp:
             transfer_method = 'lftp'
             meta = f'\n\t Max num of connections: {self.lftp_threads}'
         else:
             transfer_method = 'rsync'   
-        print(f'Using {transfer_method} for file transfer {meta}')
+        print(f'\nUsing {transfer_method} for file transfer {meta}')
         
         self.max_downloads = 4
         self.files_size_dict = {}
@@ -183,20 +183,22 @@ class RosbagsDownloader:
 
     def main(self) -> None:
         print(
-            f'Searching for .mcap files in:\n\t{self.remote_user}@{self.remote_hostname}:{self.remote_directory}'
+            f'\nSearching for .mcap files in:\n\t{self.remote_user}@{self.remote_hostname}:{self.remote_directory}'
         )
+
         rosbags_directories = self.get_remote_directories(
             self.remote_directory
         )
-        print(
-            f'Found {len(rosbags_directories)} directories containing rosbags files:'
-        )
-        print('\n'.join(rosbags_directories))
-
-        print('Extracting file sizes...')
+        
         self.files_size_dict = self.get_remote_files_sizes()
-        for key, value in self.files_size_dict.items():
-            print(f'{key}: {value}')
+        
+        print(
+            f'\nFound {len(rosbags_directories)} directories containing rosbags files:'
+        )
+        
+        for dir in rosbags_directories:
+            print(f'\t{dir}')
+
 
         counter = 0
         exit = False
