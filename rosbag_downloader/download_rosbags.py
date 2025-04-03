@@ -6,9 +6,6 @@ from pathlib import Path
 import yaml
 import time
 
-from ftplib import FTP
-
-
 class RosbagsDownloader:
 
     def __init__(self, config: dict, use_ftp: bool, ftp_password: str,ftp_parallel_workers: int,  output_directory: str):
@@ -25,46 +22,18 @@ class RosbagsDownloader:
         self.remote_password = ftp_password
 
         print(f'Using output directory: {self.host_directory}')
-        transfer_method = 'FTP' if use_ftp else 'rsync'
-        print(f'Using {transfer_method} for file transfer')
-        print(f'\t Ftp parallel workers: {self.lftp_threads}')
+        meta= ''
+        if use_ftp:
+            transfer_method = 'lftp'
+            meta = f'\n\t Max num of connections: {self.lftp_threads}'
+        else:
+            transfer_method = 'rsync'   
+        print(f'Using {transfer_method} for file transfer {meta}')
         
+        self.max_downloads = 4
         self.files_size_dict = {}
         
-        self.ftp = None
         self.use_ftp = use_ftp
-        if use_ftp:
-            pass
-            # try:
-            #     self.ftp = FTP(self.remote_hostname)
-            #     pwd = 'mypwd'
-            #     self.ftp.login(user=self.remote_user, passwd=pwd)
-
-            #     # Change to the desired directory
-            #     self.ftp.cwd(self.remote_directory)
-
-            # except Exception as e:
-            #     print(f'[✖] FTP connection failed: {e}')
-
-    def ftp_file(self, file_path):
-
-        relative_file_path = os.path.relpath(
-            file_path, start=self.remote_directory
-        )
-        host_destination = os.path.join(
-            self.host_directory, relative_file_path
-        )
-
-        # Make sure the local directory exists
-        os.makedirs(os.path.dirname(host_destination), exist_ok=True)
-
-        try:
-            print(f'[+] Starting FTP transfer: {relative_file_path}')
-            with open(host_destination, 'wb') as f:
-                self.ftp.retrbinary(f'RETR {relative_file_path}', f.write)
-
-        except Exception as e:
-            print(f'[✖] FTP upload failed for {relative_file_path}: {e}')
 
 
     def lftp_file(self, file_path):
@@ -104,8 +73,6 @@ class RosbagsDownloader:
 
             if process.returncode != 0:
                 print(f"[✖] lftp failed with code {process.returncode}")
-            # else:
-                # print(f"[✓] Download complete: {relative_file_path}")
 
         except Exception as e:
             print(f"[✖] lftp download failed for {file_path}: {e}")
@@ -232,7 +199,6 @@ class RosbagsDownloader:
             print(f'{key}: {value}')
 
         counter = 0
-        max_downloads = 5
         exit = False
 
         total_downloading_time = 0
@@ -243,14 +209,13 @@ class RosbagsDownloader:
             print(f'\tFound {len(rosbags_list)} rosbags in the directory')
 
             for rosbag in rosbags_list:
-                if counter >= max_downloads:
-                    print(f'Max downloads reached: {max_downloads}')
+                if counter >= self.max_downloads:
+                    print(f'Max downloads reached: {self.max_downloads}')
                     exit = True
                     break
                 print(f'Downloading {rosbag}...')
                 start_time = time.time()
                 if self.use_ftp:
-                    # self.ftp_file(rosbag)
                     self.lftp_file(rosbag)
                 else:  
                     self.rsync_file(rosbag)
@@ -284,11 +249,6 @@ class RosbagsDownloader:
             f'✅ {counter} rosbags were uploaded in {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s ) average'
         )
 
-        if hasattr(self, 'ftp') and self.ftp:
-            try:
-                self.ftp.quit()
-            except Exception as e:
-                print(f'Error closing FTP session: {e}')
 
 
 if __name__ == '__main__':
