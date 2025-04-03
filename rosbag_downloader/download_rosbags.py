@@ -1,14 +1,13 @@
 import argparse
 import os
 import subprocess
-import os
-from pathlib import Path
+import paramiko
 import yaml
 import time
 
 class RosbagsDownloader:
 
-    def __init__(self, config: dict, use_ftp: bool, ftp_password: str,ftp_parallel_workers: int,  output_directory: str):
+    def __init__(self, config: dict, use_ftp: bool, ftp_password: str, ftp_parallel_workers: int, output_directory: str):
         self.remote_user = config['remote_user']
         self.remote_hostname = config['remote_ip']
         self.remote_directory = config['remote_directory']
@@ -20,40 +19,32 @@ class RosbagsDownloader:
 
         self.lftp_threads = ftp_parallel_workers
         self.remote_password = ftp_password
+        self.use_ftp = use_ftp
+
+        self.max_downloads = 4
+        self.files_size_dict = {}
+
+        self.ssh_client = paramiko.SSHClient()
+        self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ssh_client.connect(hostname=self.remote_hostname, username=self.remote_user)
 
         print(f'\nOutput directory: {self.host_directory}')
-        meta= ''
+        meta = ''
         if use_ftp:
             transfer_method = 'lftp'
             meta = f'\n\t Max num of connections: {self.lftp_threads}'
         else:
-            transfer_method = 'rsync'   
+            transfer_method = 'rsync'
         print(f'\nUsing {transfer_method} for file transfer {meta}')
-        
-        self.max_downloads = 4
-        self.files_size_dict = {}
-        
-        self.use_ftp = use_ftp
-
 
     def lftp_file(self, file_path):
-        """
-        Downloads a file from an FTP server using lftp and parallel segmented download.
-        
-        Arguments:
-        - file_path: Absolute path to the file on the remote FTP server.
-        """
-
-        # Preserve local directory structure relative to remote_directory
         relative_file_path = os.path.relpath(file_path, start=self.remote_directory)
         host_destination = os.path.join(self.host_directory, relative_file_path)
-
-        # Ensure the local directory exists
         os.makedirs(os.path.dirname(host_destination), exist_ok=True)
 
         command = (
             f'lftp -u "{self.remote_user},{self.remote_password}" {self.remote_hostname} '
-            f'-e "pget -n {self.lftp_threads} \\"{file_path}\\" -o \\"{host_destination}\\"; bye"'
+            f'-e "pget -n {self.lftp_threads} \"{file_path}\" -o \"{host_destination}\"; bye"'
         )
 
         try:
@@ -81,12 +72,8 @@ class RosbagsDownloader:
 
     def rsync_file(self, file_path):
         remote_file = f'{self.remote_user}@{self.remote_hostname}:{file_path}'
-        relative_file_path = os.path.relpath(
-            file_path, start=self.remote_directory
-        )
-        host_destination = os.path.join(
-            self.host_directory, relative_file_path
-        )
+        relative_file_path = os.path.relpath(file_path, start=self.remote_directory)
+        host_destination = os.path.join(self.host_directory, relative_file_path)
 
         os.makedirs(os.path.dirname(host_destination), exist_ok=True)
 
@@ -106,78 +93,47 @@ class RosbagsDownloader:
             print(f'[✖] Failed: {file_path}\n{e}')
 
     def get_remote_file_size(self, remote_abs_file_path) -> int:
-        ssh_target = f'{self.remote_user}@{self.remote_hostname}'
-        cmd = ['ssh', ssh_target, f'stat -c%s {remote_abs_file_path}']
-
+        command = f'stat -c%s {remote_abs_file_path}'
         try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            return int(output.decode().strip())
-        except subprocess.CalledProcessError as e:
-            print(f'[Error] SSH command failed: {e.output.decode().strip()}')
-            return None
-        except ValueError:
-            print('[Error] Failed to parse file size from SSH output.')
+            stdin, stdout, stderr = self.ssh_client.exec_command(command)
+            output = stdout.read().decode().strip()
+            return int(output)
+        except Exception as e:
+            print(f'[Error] SSH command failed: {str(e)}')
             return None
 
     def get_remote_files_sizes(self) -> dict:
-        '''Get the sizes of all files in a remote directory.'''
-        ssh_target = f'{self.remote_user}@{self.remote_hostname}'
         find_cmd = f'find {self.remote_directory} -type f -name \'*.mcap\''
-        cmd = ['ssh', ssh_target, find_cmd]
         try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            files = output.decode().strip().split('\n')
+            stdin, stdout, stderr = self.ssh_client.exec_command(find_cmd)
+            files = stdout.read().decode().strip().split('\n')
             files_size_dict = {}
             for file in files:
                 file = file.strip()
                 if file:
                     files_size_dict[file] = self.get_remote_file_size(file)
             return files_size_dict
-        except subprocess.CalledProcessError as e:
-            print(f'[Error] SSH command failed: {e.output.decode().strip()}')
+        except Exception as e:
+            print(f'[Error] SSH command failed: {str(e)}')
             return []
 
-    def get_rosbags_files(self, directory: Path):
-        # Recursively find all .mcap files
-        mcap_files = list(directory.rglob('*.mcap'))
-        # Convert to string paths if needed
-        mcap_file_paths = [str(path) for path in mcap_files]
-        return mcap_file_paths
-
     def get_remote_rosbags_list(self, remote_directory):
-        '''Get a list of all rosbags on the remote machine.'''
         list_cmd = f'find {remote_directory} -name \'*.mcap\' | sort -V'
         try:
-            result = subprocess.run(
-                f'ssh {self.remote_user}@{self.remote_hostname} \'{list_cmd}\'',
-                shell=True,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            rosbag_list = result.stdout.splitlines()
+            stdin, stdout, stderr = self.ssh_client.exec_command(list_cmd)
+            rosbag_list = stdout.read().decode().splitlines()
             return rosbag_list
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f'Failed to list rosbags on remote machine: {e}')
             raise
 
     def get_remote_directories(self, remote_directory):
-        '''List directories on the remote machine containing .mcap files.'''
-        list_cmd = (
-            f'ssh {self.remote_user}@{self.remote_hostname} '
-            f'"find {remote_directory} -type f -name \'*.mcap\' -printf \'%h\\n\' | sort -u"'
-        )
+        list_cmd = f'find {remote_directory} -type f -name \'*.mcap\' -printf \'%h\\n\' | sort -u'
         try:
-            result = subprocess.run(
-                list_cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            subdirectories = result.stdout.splitlines()
+            stdin, stdout, stderr = self.ssh_client.exec_command(list_cmd)
+            subdirectories = stdout.read().decode().splitlines()
             return subdirectories
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f'Failed to list directories in {remote_directory}: {e}')
             return []
 
