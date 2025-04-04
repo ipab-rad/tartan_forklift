@@ -6,6 +6,9 @@ import os
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
+import threading
+import queue
+
 from datetime import datetime
 
 import colorlog
@@ -241,6 +244,103 @@ def compress_and_transfer_rosbag(
 
     return True
 
+def compress_remote_rosbag(rosbag_path, remote_temp_directory, compressed_bags_queue, config, logger):
+    """Compress a single rosbag file on the remote machine"""
+    # Note: This will be simplfied when script is ported to a Class
+    remote_user = config['remote_user']
+    remote_ip = config['remote_ip']
+    mcap_path = config['mcap_path']
+    mcap_compression_chunk_size = config['mcap_compression_chunk_size']
+    
+    # # Check available disk space before compression
+    # if not check_disk_space(
+    #     logger, remote_user, remote_ip, remote_temp_directory, rosbag_path
+    # ):
+    #     logger.error(f'Insufficient disk space for compressing {rosbag_path}')
+    #     return False
+
+    # logger.info(
+    #     f'Enough space found on the remote machine. Start '
+    #     f'compressing: \n{rosbag_path}'
+    # )
+    
+    logger.info(
+        f'Compressing: \n\t{rosbag_path}'
+    )
+
+    remote_rosbag_compressed_path = os.path.join(
+        remote_temp_directory, os.path.basename(rosbag_path)
+    )
+
+    compress_cmd = (
+        f'{mcap_path} compress {rosbag_path}'
+        f' --chunk-size {mcap_compression_chunk_size}'
+        f' -o {remote_rosbag_compressed_path}'
+    )
+    
+    try:
+        start_time = time.time()
+        run_ssh_command(logger, remote_user, remote_ip, compress_cmd)
+        duration = time.time() - start_time
+
+        logger.info(f'Rosbag compressed in  {duration:.2f} seconds')
+
+    except subprocess.CalledProcessError as e:
+        logger.error(
+            f'Failed to compress rosbag {rosbag_path} on remote machine: {e}'
+        )
+    
+    # time.sleep(5.0) # Simulate compression time
+    # Add the compressed file to the queue
+    compressed_bags_queue.put(remote_rosbag_compressed_path)  
+
+# Manager to run batches of N compression threads
+def run_compression_pool(rosbag_list, remote_rosbag_directory, compressed_bags_queue, config, logger, shutdown_event):
+    remote_temp_directory = os.path.join(remote_rosbag_directory, "temp")
+    index = 0
+    max_workers = int(config['parallel_processes'])
+    max_queue_size = max_workers * 2
+    wait_to_compress = False
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        try:
+            while index < len(rosbag_list) and not shutdown_event.is_set():
+                rosbags_left = len(rosbag_list) - index
+                queue_size = compressed_bags_queue.qsize()
+
+                if queue_size >= max_queue_size:
+                    wait_to_compress = True
+
+                if wait_to_compress:
+                    if queue_size <= (max_queue_size - max_workers):
+                        wait_to_compress = False
+                    logger.info(f'[compressor] Waiting for uploader. Queue size: {queue_size}')
+                    time.sleep(1.0)
+                    continue
+
+                futures = []
+                for _ in range(min(max_workers, rosbags_left)):
+                    if shutdown_event.is_set():
+                        break
+                    rosbag_path = rosbag_list[index]
+                    future = executor.submit(
+                        compress_remote_rosbag,
+                        rosbag_path,
+                        remote_temp_directory,
+                        compressed_bags_queue,
+                        config,
+                        logger
+                    )
+                    futures.append(future)
+                    index += 1
+
+                for f in futures:
+                    if shutdown_event.is_set():
+                        break
+                    f.result()
+
+        except Exception as e:
+            logger.warning(f'[compressor] Error during compression: {e}')
 
 def get_remote_rosbags_list(logger, remote_user, remote_ip, remote_directory):
     """Get a list of all rosbags on the remote machine."""
@@ -539,61 +639,16 @@ def process_directory(
     bandwidth_mbps,
     file_sizes_dict,
     files_dict,
-    global_rosbag_counter,
+    total_uploaded_files,
     total_rosbags,
 ):
     """Process each directory."""
-    logger.info('')
-    logger.info(f'Processing: {remote_directory}')
     # Create the remote temporary directory
     create_remote_temp_directory(
         logger, remote_user, remote_ip, remote_directory
     )
-    successfully_uploaded_files = []
-    total_files = 0
 
     try:
-        # Find and copy the metadata.yaml file
-        metadata_path = find_metadata_file(
-            logger, remote_user, remote_ip, remote_directory
-        )
-        if metadata_path is None:
-            logger.warning(
-                f'metadata.yaml file not found in {remote_directory}. '
-                f'Skipping.'
-            )
-        relative_metadata_path = os.path.relpath(
-            metadata_path, start=base_remote_directory
-        )
-
-        local_metadata_path = os.path.join(
-            cloud_upload_directory, relative_metadata_path
-        )
-
-        check_and_create_local_directory(
-            logger, os.path.dirname(local_metadata_path)
-        )
-
-        if not copy_metadata_file(
-            logger,
-            remote_user,
-            remote_ip,
-            metadata_path,
-            cloud_upload_directory,
-            base_remote_directory,
-        ):
-            logger.error(
-                f'Failed to copy metadata.yaml from '
-                f'{remote_directory}. Skipping file.'
-            )
-
-        # Read the metadata.yaml file
-
-        metadata = read_metadata(logger, local_metadata_path)
-        expected_bags = metadata.get('rosbag2_bagfile_information', {}).get(
-            'relative_file_paths', None
-        )
-
         # Retrieve the list of rosbags contained in the remote subdirectory
         rosbag_list = files_dict.get(remote_directory)
         if rosbag_list is None:
@@ -602,15 +657,6 @@ def process_directory(
             )
             files_dict[remote_directory] = rosbag_list
 
-        if len(rosbag_list) != len(expected_bags):
-            logger.error(
-                'The number of rosbags does not match the metadata. Skipping.'
-            )
-            return {
-                'uploaded_files': len(successfully_uploaded_files),
-                'total_files': total_files,
-                'global_rosbag_counter': global_rosbag_counter,
-            }
 
         rosbag_sizes = file_sizes_dict[remote_directory]
         total_size_bytes = sum(rosbag_sizes)
@@ -634,46 +680,125 @@ def process_directory(
         else:
             estimated_time_str = f'{seconds} seconds'
 
-        logger.info(
+        bags_size_log = (
             f'Found {len(rosbag_list)} files to upload with total size '
-            f'{total_size_bytes / (1024**3):.2f} GB from {remote_directory}.'
+            f'{total_size_bytes / (1024**3):.2f} GB'
         )
-        logger.info(
+        
+        estimate_uploading_time_log = (
             f'Estimated rosbags upload time (including compression) '
             f'is at least: {estimated_time_str}.'
         )
 
+        logger.info(f'\nProcessing: {remote_directory} \n\t{bags_size_log}\n\t{estimate_uploading_time_log}')
+        
+        # # Find and copy the metadata.yaml file
+        # metadata_path = find_metadata_file(
+        #     logger, remote_user, remote_ip, remote_directory
+        # )
+        # if metadata_path is None:
+        #     logger.warning(
+        #         f'metadata.yaml file not found in {remote_directory}. '
+        #         f'Skipping.'
+        #     )
+        # relative_metadata_path = os.path.relpath(
+        #     metadata_path, start=base_remote_directory
+        # )
+
+        # local_metadata_path = os.path.join(
+        #     cloud_upload_directory, relative_metadata_path
+        # )
+
+        # check_and_create_local_directory(
+        #     logger, os.path.dirname(local_metadata_path)
+        # )
+
+        # if not copy_metadata_file(
+        #     logger,
+        #     remote_user,
+        #     remote_ip,
+        #     metadata_path,
+        #     cloud_upload_directory,
+        #     base_remote_directory,
+        # ):
+        #     logger.error(
+        #         f'Failed to copy metadata.yaml from '
+        #         f'{remote_directory}. Skipping file.'
+        #     )
+
+        # # Read the metadata.yaml file
+
+        # metadata = read_metadata(logger, local_metadata_path)
+        # expected_bags = metadata.get('rosbag2_bagfile_information', {}).get(
+        #     'relative_file_paths', None
+        # )
+
+        # if len(rosbag_list) != len(expected_bags):
+        #     logger.error(
+        #         'The number of rosbags does not match the metadata. Skipping.'
+        #     )
+        #     return {
+        #         'uploaded_files': len(successfully_uploaded_files),
+        #         'total_files': total_files,
+        #         'total_uploaded_files': total_uploaded_files,
+        #     }
+
+        # To keep track of the uploaded files
         successfully_uploaded_files = []
+        # To know which compressed rosbag is next to be uploaded
+        compressed_bags_queue = queue.Queue()
+        # To let know other threaads when to stop
+        shutdown_event = threading.Event()
+        
+        # Start compression manager thread
+        compression_thread = threading.Thread(
+            target=run_compression_pool,
+            args=(rosbag_list, remote_directory,  compressed_bags_queue, config, logger, shutdown_event)
+        )
+        compression_thread.start()
 
-        # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(
-            max_workers=config['parallel_processes']
-        ) as executor:
-            futures = [
-                executor.submit(
-                    compress_and_transfer_rosbag,
-                    logger,
-                    remote_user,
-                    remote_ip,
-                    rosbag,
-                    remote_directory,
-                    cloud_upload_directory,
-                    config['mcap_path'],
-                    config['mcap_compression_chunk_size'],
-                    config['upload_attempts'],
-                    base_remote_directory,
-                    current_rosbag_number=i + 1,
-                    global_rosbag_counter=global_rosbag_counter + i + 1,
-                    total_rosbags=total_rosbags,
-                )
-                for i, rosbag in enumerate(rosbag_list)
-            ]
-
-            for future in futures:
-                result = future.result()
-                if result:
-                    successfully_uploaded_files.append(result)
-        global_rosbag_counter += len(successfully_uploaded_files)
+        # Main thread handles uploads as results come in
+        try:
+            while compression_thread.is_alive() or not compressed_bags_queue.empty():
+                while not compressed_bags_queue.empty():
+                    queue_size = compressed_bags_queue.qsize()
+                    # Get next compressed bag
+                    remote_compressed_bag_path = compressed_bags_queue.get()
+                    # Obtain the relative path of this rosbag so we keep directory structure
+                    relative_remote_compressed_rosbag_path = os.path.relpath(
+                            remote_compressed_bag_path, start=base_remote_directory
+                        )
+                    # Remove the 'temp/' prefix from the path
+                    relative_remote_compressed_rosbag_path = relative_remote_compressed_rosbag_path.replace(
+                        'temp/', ''
+                    )
+                    # Define the path to the host directory
+                    host_destiantion_path = os.path.join(
+                        cloud_upload_directory, relative_remote_compressed_rosbag_path
+                    )
+                    
+                    total_uploaded_files += 1
+                    
+                    logger.info(f'Uploading [{total_uploaded_files}/{total_rosbags}]:\n\t{remote_compressed_bag_path} --> {host_destiantion_path}')
+                    time.sleep(5.0) # Simulate upload time
+                    print('\tUpload done')
+                    # TODO
+                    # status = self.upload_rosbag(remote_compressed_bag_path, host_destiantion_path)
+                    # if not status:
+                    #     total_uploaded_files -= 1
+                    remote_rosbag_path = os.path.join(remote_directory, remote_compressed_bag_path)
+                    successfully_uploaded_files.append(remote_rosbag_path)
+                    
+                    # Debug
+                    # # Delete the compressed bag from the remote machine
+                    # delete_remote_file(logger,remote_user,remote_ip, remote_compressed_bag_path)
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            logger.info("\n Interrupted. Exiting.")
+            shutdown_event.set()  # Signal the compression thread to stop
+            # Wait for compression thread to finish gracefully
+            compression_thread.join()
+            logger.info("Shutdown complete.")
 
         if config['clean_up']:
             # Only delete rosbag files that were successfully uploaded
@@ -685,12 +810,36 @@ def process_directory(
         delete_remote_temp_directory(
             logger, remote_user, remote_ip, remote_directory
         )
-    return {
-        'uploaded_files': len(successfully_uploaded_files),
-        'total_files': total_files,
-        'global_rosbag_counter': global_rosbag_counter,
-    }
 
+    return {'uploaded_files': len(successfully_uploaded_files)}    
+        # # Use ThreadPoolExecutor for parallel processing
+        # with ThreadPoolExecutor(
+        #     max_workers=config['parallel_processes']
+        # ) as executor:
+        #     futures = [
+        #         executor.submit(
+        #             compress_and_transfer_rosbag,
+        #             logger,
+        #             remote_user,
+        #             remote_ip,
+        #             rosbag,
+        #             remote_directory,
+        #             cloud_upload_directory,
+        #             config['mcap_path'],
+        #             config['mcap_compression_chunk_size'],
+        #             config['upload_attempts'],
+        #             base_remote_directory,
+        #             current_rosbag_number=i + 1,
+        #             global_rosbag_counter=global_rosbag_counter + i + 1,
+        #             total_rosbags=total_rosbags,
+        #         )
+        #         for i, rosbag in enumerate(rosbag_list)
+        #     ]
+
+        #     for future in futures:
+        #         result = future.result()
+        #         if result:
+        #             successfully_uploaded_files.append(result)
 
 def validate_config(config: dict):
     """Validate the configuration parameters."""
@@ -823,18 +972,14 @@ def main(config: dict, debug: bool):
     )
     confirm = input('Do you want to proceed to upload? (yes/no): ')
 
-    if confirm.lower() != 'yes':
+    if confirm.lower() not in ('yes', 'y'):
         logger.info('Upload aborted by user.')
         return
 
     logger.info('User confirmed upload. Beginning processing of directories.')
 
-    total_uploaded_files = (
-        0  # Initialize counter for successfully uploaded files
-    )
-    total_files = 0  # Initialize counter for total files
-    global_rosbag_counter = 0
-
+    total_uploaded_files = 0
+    
     # Process each subdirectory
     for subdirectory in subdirectories:
         result = process_directory(
@@ -848,23 +993,17 @@ def main(config: dict, debug: bool):
             bandwidth_mbps,
             file_sizes_dict,
             files_dict,
-            global_rosbag_counter,
+            total_uploaded_files,
             total_rosbags,
         )
+        
         total_uploaded_files += result.get(
             'uploaded_files', 0
-        )  # Update the count of uploaded files
-        total_files += result.get(
-            'total_files', 0
-        )  # Update the total file count
-
-        global_rosbag_counter = result.get(
-            'global_rosbag_counter', global_rosbag_counter
-        )  # Update the global rosbag counter
+        )
 
     # Final log statement after processing all subdirectories
     logger.info(
-        f'Uploading finished. {total_uploaded_files}/{total_files} '
+        f'Uploading finished. {total_uploaded_files}/{total_rosbags} '
         f'files were successfully uploaded.'
     )
 
