@@ -127,6 +127,15 @@ class RosbagsDownloader:
             print(f'Failed to list rosbags on remote machine: {e}')
             raise
 
+    def get_remote_metadata(self, remote_directory) -> str:
+        find_metadata_cmd = f'find {remote_directory} -name \'metadata.yaml\''
+        try:
+            stdin, stdout, stderr = self.ssh_client.exec_command(find_metadata_cmd)
+            metadata_file_path = stdout.read().decode().strip()
+            return metadata_file_path
+        except Exception as e:
+            print(f'Failed to list metadata on remote machine: {e}')
+        
     def get_remote_directories(self, remote_directory):
         list_cmd = f'find {remote_directory} -type f -name \'*.mcap\' -printf \'%h\\n\' | sort -u'
         try:
@@ -136,7 +145,24 @@ class RosbagsDownloader:
         except Exception as e:
             print(f'Failed to list directories in {remote_directory}: {e}')
             return []
+    
+    def compute_time_string(self, total_seconds: int) -> str:
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
 
+        estimated_time_str = ''
+        if hours > 0:
+            estimated_time_str = (
+                f'{hours} hours {minutes} minutes {seconds} seconds'
+            )
+        elif minutes > 0:
+            estimated_time_str = f'{minutes} minutes {seconds} seconds'
+        else:
+            estimated_time_str = f'{seconds} seconds'
+        
+        return estimated_time_str
+    
     def main(self) -> None:
         print(
             f'\nSearching for .mcap files in:\n\t{self.remote_user}@{self.remote_hostname}:{self.remote_directory}'
@@ -165,13 +191,23 @@ class RosbagsDownloader:
             print(f'\nProcessing directory: {rosbag_directory}')
             rosbags_list = self.get_remote_rosbags_list(rosbag_directory)
             print(f'\tFound {len(rosbags_list)} rosbags in the directory')
+            
+            # Copy metadata file if existed
+            metadata_file_path = self.get_remote_metadata(rosbag_directory)
+            if metadata_file_path:
+                print(f'\nDownloading {metadata_file_path}...')
+                if self.use_ftp:
+                    self.lftp_file(metadata_file_path)
+                else:
+                    self.rsync_file(metadata_file_path)
+
 
             for rosbag in rosbags_list:
                 if counter >= self.max_downloads:
                     print(f'Max downloads reached: {self.max_downloads}')
                     exit = True
                     break
-                print(f'Downloading {rosbag}...')
+                print(f'\nDownloading {rosbag}...')
                 start_time = time.time()
                 if self.use_ftp:
                     self.lftp_file(rosbag)
@@ -190,7 +226,7 @@ class RosbagsDownloader:
                 avg_trasfer_speed_gbps= avg_transfer_speed / 125.0
                 
                 print(
-                    f'\t File transferred in {elapsed_time:.2f} sec at {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s ) average \n'
+                    f'\t File transferred in {elapsed_time:.2f} sec at {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s ) average'
                 )
                 counter += 1
 
@@ -203,8 +239,9 @@ class RosbagsDownloader:
         
         avg_trasfer_speed_gbps= avg_transfer_speed / 125.0
         
+        time_str = self.compute_time_string(int(total_downloading_time))
         print(
-            f'✅ {counter} rosbags were uploaded in {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s ) average'
+            f'✅ {counter} rosbags were uploaded:\n\tTotal time: {time_str}\n\tThroughput: {avg_trasfer_speed_gbps:.2f} Gbit/s ({avg_transfer_speed:.2f} MB/s )'
         )
 
 
