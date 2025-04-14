@@ -9,6 +9,7 @@ class Parameters:
         self.cloud_user = None
         self.cloud_hostname = None
         self.cloud_ssh_alias = None
+        self.cloud_upload_directory = None
         self.mcap_bin_path = None
         self.mcap_compression_chunk_size = None
         self.parallel_processes = None
@@ -48,6 +49,7 @@ class ConfigParser:
             parameters.cloud_user = yaml_config.get('cloud_user')
             parameters.cloud_hostname = yaml_config.get('cloud_hostname')
             parameters.cloud_ssh_alias = yaml_config.get('cloud_ssh_alias')
+            parameters.cloud_upload_directory = yaml_config.get('cloud_upload_directory')
             parameters.clean_up_source = yaml_config.get('clean_up_source')
             parameters.mcap_bin_path = yaml_config.get('mcap_bin_path')
             parameters.mcap_compression_chunk_size = yaml_config.get('mcap_compression_chunk_size')
