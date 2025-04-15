@@ -104,5 +104,6 @@ class SSHClient:
         """Send command to the remote server and return the output."""
         stdin, stdout, stderr = self.client.exec_command(cmd)
         output = stdout.read().decode()
+        output_stderr = stderr.read().decode()
 
-        return output
+        return output, output_stderr
