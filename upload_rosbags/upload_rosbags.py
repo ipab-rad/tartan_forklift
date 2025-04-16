@@ -9,7 +9,6 @@ command-line arguments.
 import argparse
 import logging
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from multiprocessing import Queue
 from pathlib import Path
@@ -19,15 +18,8 @@ import colorlog
 
 
 from upload_rosbags.modules.config_parser import ConfigParser
+from upload_rosbags.modules.data_types import Rosbag
 from upload_rosbags.modules.ssh_client import SSHClient
-
-
-@dataclass
-class Rosbag:
-    """A class representing a ROS bag file information."""
-
-    absolute_path: Path
-    size_bytes: int
 
 
 class RosbagUploader:

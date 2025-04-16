@@ -1,18 +1,7 @@
 import yaml
 import os
 
-class Parameters:
-    def __init__(self):
-        self.local_host_user = None
-        self.local_hostname = None
-        self.local_rosbags_directory = None
-        self.cloud_user = None
-        self.cloud_hostname = None
-        self.cloud_ssh_alias = None
-        self.cloud_upload_directory = None
-        self.mcap_bin_path = None
-        self.mcap_compression_chunk_size = None
-        self.parallel_processes = None
+from upload_rosbags.modules.data_types import Parameters
         
 class ConfigParser:
     def __init__(self):
@@ -42,18 +31,19 @@ class ConfigParser:
             
             self.validate_yaml_config(yaml_config)
             
-            parameters = Parameters()
-            parameters.local_host_user = yaml_config.get('local_host_user')
-            parameters.local_hostname = yaml_config.get('local_hostname')
-            parameters.local_rosbags_directory = yaml_config.get('local_rosbags_directory')
-            parameters.cloud_user = yaml_config.get('cloud_user')
-            parameters.cloud_hostname = yaml_config.get('cloud_hostname')
-            parameters.cloud_ssh_alias = yaml_config.get('cloud_ssh_alias')
-            parameters.cloud_upload_directory = yaml_config.get('cloud_upload_directory')
-            parameters.clean_up_source = yaml_config.get('clean_up_source')
-            parameters.mcap_bin_path = yaml_config.get('mcap_bin_path')
-            parameters.mcap_compression_chunk_size = yaml_config.get('mcap_compression_chunk_size')
-            parameters.parallel_processes = yaml_config.get('parallel_processes')
+            parameters = Parameters(
+                local_host_user = yaml_config.get('local_host_user'),
+                local_hostname = yaml_config.get('local_hostname'),
+                local_rosbags_directory = yaml_config.get('local_rosbags_directory'),
+                cloud_user = yaml_config.get('cloud_user'),
+                cloud_hostname = yaml_config.get('cloud_hostname'),
+                cloud_ssh_alias = yaml_config.get('cloud_ssh_alias'),
+                cloud_upload_directory = yaml_config.get('cloud_upload_directory'),
+                mcap_bin_path = yaml_config.get('mcap_bin_path'),
+                mcap_compression_chunk_size = int(yaml_config.get('mcap_compression_chunk_size')),
+                compression_parallel_workers = int(yaml_config.get('compression_parallel_workers')),
+                compression_queue_max_size = int(yaml_config.get('compression_queue_max_size'))
+            )
             return parameters
 
 
