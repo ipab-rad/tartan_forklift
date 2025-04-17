@@ -11,7 +11,7 @@ class ConfigParser:
             'local_rosbags_directory',
             'cloud_upload_directory',
             'upload_attempts',
-            'mcap_path',
+            'mcap_bin_path',
             'mcap_compression_chunk_size',
             'compression_parallel_workers',
             'compression_queue_max_size'
@@ -108,8 +108,8 @@ class ConfigParser:
         ):
             raise ValueError('"upload_attempts" must be a positive integer.')
         
-        if not os.path.isabs(yaml_config['mcap_path']):
-            raise ValueError('"mcap_path" must be an absolute path.')
+        if not os.path.isabs(yaml_config['mcap_bin_path']):
+            raise ValueError('"mcap_bin_path" must be an absolute path.')
 
         if (
             not isinstance(yaml_config['mcap_compression_chunk_size'], int)

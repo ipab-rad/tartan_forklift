@@ -1,6 +1,6 @@
 local_host_user: "lxo"
 local_hostname: "129.215.117.145"
-local_rosbags_directory: "/recorded_datasets/test_bags"
+local_rosbags_directory: "/recorded_datasets/edinburgh"
 
 cloud_ssh_alias: "eidf-vm"
 cloud_user : ""
@@ -8,7 +8,7 @@ cloud_hostname : ""
 cloud_upload_directory: "/mnt/vdb/test_bags"
 
 upload_attempts: 3
-mcap_path: "/home/lxo/mcap"
+mcap_bin_path: "/home/lxo/mcap"
 mcap_compression_chunk_size: 62914560 # ~60 MiB
-compression_parallel_workers: 5
-compression_queue_max_size: 10
+compression_parallel_workers: 10
+compression_queue_max_size: 15
