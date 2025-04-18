@@ -10,13 +10,12 @@ import argparse
 import logging
 import time
 from datetime import datetime
-from multiprocessing import Queue
 from pathlib import Path
 from typing import List
 
 import colorlog
 
-
+from upload_rosbags.modules.compression_manager import CompressionManager
 from upload_rosbags.modules.config_parser import ConfigParser
 from upload_rosbags.modules.data_types import Rosbag
 from upload_rosbags.modules.ssh_client import SSHClient
@@ -24,14 +23,18 @@ from upload_rosbags.modules.ssh_client import SSHClient
 
 class RosbagUploader:
     """
-    A class for compressing and uploading ROS bag files to a cloud server.
+    Compresses and uploads ROS bag (.mcap) files to a remote server.
 
-    It expects a YAML parameters file with and runtime arguments to:
-     - Stablish a connection to the cloud server
-     - Compress the bag files using `mcap` CLI
-     - Upload the compressed files to the cloud server using SSH and `lftp`
-       tool
+    This class manages the end-to-end workflow:
+    - Scans directories for .mcap files
+    - Compresses them in parallel using a configurable compression manager
+    - Uploads the compressed files via SSH using the `lftp` tool
+    - Cleans up temporary files after successful uploads
 
+    It expects a YAML configuration file and runtime arguments to:
+    - Establish SSH and FTP connections details
+    - Configure compression and upload behaviour
+    - Enable logging and optional debug output
     """
 
     def __init__(self, config_path, lftp_password, debug) -> None:
@@ -44,6 +47,10 @@ class RosbagUploader:
 
         self.ssh_client = SSHClient(self.params, self.logger)
 
+        self.stopped = False
+
+        self.temp_directory_name = 'compressed_rosbags'
+
     def setup_logging(self, debug_mode) -> logging.Logger:
         """Configure logging with color support."""
         # Timestamp for the log file name
@@ -52,7 +59,7 @@ class RosbagUploader:
 
         # Create a logger
         logger = logging.getLogger('upload_rosbags')
-        logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+        logger.setLevel(logging.DEBUG)
 
         logger.propagate = False
 
@@ -121,50 +128,84 @@ class RosbagUploader:
             for file in mcap_files
         ]
 
-    def upload_file(self, file_abs_path) -> None:
-        """Upload a single bag file to a remote server using ssh and lftp."""
-        # Create the destination path
-        file_abs_path_obj = Path(file_abs_path)
+    def resolve_remote_destination_path(
+        self, local_file_path: Path, remove_from_path: str = None
+    ) -> Path:
+        """Resolve the remote destination path for a file."""
         local_base = Path(self.params.local_rosbags_directory)
         cloud_base = Path(self.params.cloud_upload_directory)
 
         # Compute relative path and construct remote destination
-        relative_file_path = file_abs_path_obj.relative_to(local_base)
+        relative_file_path = local_file_path.relative_to(local_base)
         remote_destination = cloud_base / relative_file_path
 
-        # Make sure the parent directory exists
-        mkdir_cmd = f'mkdir -p {str(remote_destination.parent)}'
-        self.ssh_client.send_command(mkdir_cmd)
+        if remove_from_path:
+            # Remove the specified part/dir from the path
+            new_parts = [
+                part
+                for part in remote_destination.parts
+                if part != remove_from_path
+            ]
+            remote_destination = Path(*new_parts)
+        return remote_destination
 
+    def upload_file(
+        self, local_file_path, remote_destination_file_path
+    ) -> None:
+        """Upload a single file to a remote server using ssh and lftp."""
         self.logger.debug(
-            f'Uploading {file_abs_path} to {str(remote_destination)}'
+            f'Uploading {local_file_path} '
+            f'to {str(remote_destination_file_path)}'
         )
 
         # Upload the file using lftp and the ssh client
         lftp_cmd = (
             f'lftp -u "{self.params.local_host_user},'
             f'{self.lftp_password}" {self.params.local_hostname} '
-            f'-e "pget -n 4 \"{file_abs_path}\" '
-            f'-o \"{str(remote_destination)}\"; bye"'
+            f'-e "pget -n 4 \"{local_file_path}\" '
+            f'-o \"{str(remote_destination_file_path)}\"; bye"'
         )
 
-        self.logger.debug(f'ftp cmd: "{lftp_cmd}"')
+        exit_code, stdout, stderr = self.ssh_client.send_command(lftp_cmd)
 
-        stdout, stderr = self.ssh_client.send_command(lftp_cmd)
+        if 'file already exists' in stderr:
+            self.logger.info(
+                f'{str(local_file_path)} already exists on '
+                f'remote - skipping.'
+            )
+            return
+        if exit_code != 0:
+            self.logger.error(
+                f'Error uploading {local_file_path}\nlftp error: {stderr}'
+            )
+            raise RuntimeError(
+                f'Failed to upload {local_file_path} to '
+                f'{str(remote_destination_file_path)}'
+            )
+
+        self.logger.debug(f'lftp output: {stdout}')
 
     def process_rosbags_in_directory(
         self,
-        rosbag_directory,
+        rosbag_directory: str,
         rosbags_list: List[Rosbag],
         uploaded_rosbags: int,
         total_rosbags: int,
     ) -> tuple[int, float]:
         """Compress and upload rosbags in a directory."""
-        # TODO: Start compression logic here. For now, create a
-        # queue to simulate the future compression queueing process
-        compressed_rosbags_queue = Queue()
-        for rosbag in rosbags_list:
-            compressed_rosbags_queue.put(rosbag)
+        # Create temporary directory for compressed files
+        temp_directory = Path(rosbag_directory) / self.temp_directory_name
+        temp_directory.mkdir(parents=True, exist_ok=True)
+
+        compression_manager = CompressionManager(
+            rosbag_directory,
+            rosbags_list,
+            str(temp_directory),
+            self.params,
+            self.logger,
+        )
+        # Start the compression
+        compression_manager.start_compression()
 
         current_rosbag_count = uploaded_rosbags
         total_uploading_time = 0
@@ -175,31 +216,69 @@ class RosbagUploader:
             self.logger.info(
                 f'Uploading metadata file: {metadata_file.absolute()}'
             )
-            self.upload_file(str(metadata_file.absolute()))
-
-        # Upload until the queue is empty
-        while compressed_rosbags_queue.qsize() > 0:
-            rosbag = compressed_rosbags_queue.get()
-            self.logger.info(
-                f'Uploading [{current_rosbag_count + 1}/{total_rosbags}]: '
-                f'{rosbag.absolute_path.name} ({rosbag.size_bytes} bytes)'
+            remote_destination = self.resolve_remote_destination_path(
+                local_file_path=metadata_file
             )
 
-            file_path = str(rosbag.absolute_path)
-            start_time = time.time()
-            self.upload_file(file_path)
-            elapsed_time = time.time() - start_time
+            # Make sure the parent directory exists
+            self.create_remote_directory(str(remote_destination.parent))
 
-            total_uploading_time += elapsed_time
-            current_rosbag_count += 1
+            self.upload_file(
+                str(metadata_file.absolute()), str(remote_destination)
+            )
 
-            time_str = self.compute_time_string(int(elapsed_time))
-            throughput = self.compute_throughput(
-                rosbag.size_bytes, elapsed_time
-            )
-            self.logger.info(
-                f'Upload completed in ' f'{time_str} at {throughput:.2f} Gbps'
-            )
+        try:
+            # Upload until compression manager stops providing rosbags
+            while True:
+                # This function blocks until a compressed rosbag is available
+                comp_rosbag = compression_manager.get_compressed_bag()
+
+                # No more compressed rosbags to upload
+                if comp_rosbag is None:
+                    break
+
+                self.logger.info(
+                    f'Uploading [{current_rosbag_count + 1}/{total_rosbags}]: '
+                    f'{comp_rosbag.absolute_path.name} '
+                    f'({comp_rosbag.size_bytes} bytes)'
+                )
+
+                remote_destination = self.resolve_remote_destination_path(
+                    local_file_path=comp_rosbag.absolute_path,
+                    remove_from_path=self.temp_directory_name,
+                )
+
+                # Make sure the parent directory exists
+                self.create_remote_directory(str(remote_destination.parent))
+
+                comp_bag_file_path = str(comp_rosbag.absolute_path)
+                start_time = time.time()
+                self.upload_file(comp_bag_file_path, str(remote_destination))
+                elapsed_time = time.time() - start_time
+
+                total_uploading_time += elapsed_time
+                current_rosbag_count += 1
+
+                time_str = self.compute_time_string(int(elapsed_time))
+                throughput = self.compute_throughput(
+                    comp_rosbag.size_bytes, elapsed_time
+                )
+                self.logger.info(
+                    f'Upload completed in '
+                    f'{time_str} at {throughput:.2f} Gbps'
+                )
+
+                # Delete the compressed file after upload
+                comp_rosbag.absolute_path.unlink()
+
+            # Delete temporary directory
+            temp_directory.rmdir()
+
+        except KeyboardInterrupt:
+            self.logger.info('Upload process interrupted by user.')
+            self.stopped = True
+            compression_manager.stop()
+            temp_directory.rmdir()
 
         return current_rosbag_count, total_uploading_time
 
@@ -226,32 +305,45 @@ class RosbagUploader:
         # To track progress
         uploaded_rosbags = 0
         global_upload_time = 0
+
+        start_time = time.time()
         # Process each directory
-        try:
-            for directory, rosbags_list in rosbags_directories_dict.items():
-                print('')
-                self.logger.info(f'Processing directory: {directory}')
-                total_uploads, total_upload_time = (
-                    self.process_rosbags_in_directory(
-                        directory,
-                        rosbags_list,
-                        uploaded_rosbags,
-                        total_rosbags,
-                    )
-                )
-                # Update the global count of uploaded rosbags
-                # so it is carried over to the next for iteration
-                uploaded_rosbags = total_uploads
-                global_upload_time += total_upload_time
-
+        for directory, rosbags_list in rosbags_directories_dict.items():
+            # Check if the upload process was interrupted
+            if self.stopped:
+                break
             print('')
-            self.logger.info(
-                f'{uploaded_rosbags} rosbags were uploaded in '
-                f'{self.compute_time_string(int(global_upload_time))}'
+            self.logger.info(f'Processing directory: {directory}')
+            total_uploads, total_upload_time = (
+                self.process_rosbags_in_directory(
+                    directory,
+                    rosbags_list,
+                    uploaded_rosbags,
+                    total_rosbags,
+                )
             )
+            # Update the global count of uploaded rosbags
+            # so it is carried over to the next for iteration
+            uploaded_rosbags = total_uploads
+            global_upload_time += total_upload_time
 
-        except KeyboardInterrupt:
-            self.logger.info('Upload process interrupted by user.')
+        total_elapsed_time = time.time() - start_time
+        uploader_idle_time = total_elapsed_time - global_upload_time
+
+        print('')
+        self.logger.info(
+            f'{uploaded_rosbags} rosbags were compressed and uploaded in '
+            f'{self.compute_time_string(int(total_elapsed_time))} '
+            '(upload time: '
+            f'{self.compute_time_string(int(global_upload_time))}'
+            '| idle time: '
+            f'{self.compute_time_string(int(uploader_idle_time))})'
+        )
+
+    def create_remote_directory(self, directory: str) -> None:
+        """Create a directory on the remote server."""
+        mkdir_cmd = f'mkdir -p {directory}'
+        self.ssh_client.send_command(mkdir_cmd)
 
     @staticmethod
     def compute_time_string(total_seconds: int) -> str:
