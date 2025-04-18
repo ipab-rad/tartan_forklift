@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "upload_rosbags"
+version = "0.0.1"
+description = "A package for uploading rosbags to a cloud server"
+authors = [{ name = "Hector Cruz", email = "hcruzgo@ed.ac.uk" }]
+dependencies = []
+
+[tool.setuptools]
+packages = ["upload_rosbags", "upload_rosbags.modules"]
+
+[project.scripts]
+upload_rosbags = "upload_rosbags.upload_rosbags:main"
