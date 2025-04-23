@@ -1,9 +1,0 @@
-remote_user: "lxo"
-remote_ip: "129.215.117.145"
-remote_directory: "/recorded_datasets/edinburgh"
-cloud_upload_directory: "/mnt/vdb/data"
-clean_up: false
-upload_attempts: 3
-mcap_path: "/home/lxo/mcap"
-mcap_compression_chunk_size: 62914560 # ~60 MB
-parallel_processes: 5
