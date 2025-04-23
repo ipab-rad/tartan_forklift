@@ -67,7 +67,7 @@ class CompressionManager:
         try:
             subprocess.run(compress_cmd, check=True)
         except subprocess.CalledProcessError as e:
-            # TODO:  Handle error appropriately
+            # TODO (#35):  Handle error appropriately
             self.logger.warning(f'Compression failed: {e}')
 
         duration = time.time() - start

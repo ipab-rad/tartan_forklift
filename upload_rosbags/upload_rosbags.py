@@ -51,6 +51,8 @@ class RosbagUploader:
 
         self.temp_directory_name = 'compressed_rosbags'
 
+        self.lftp_parallel_threads = 4
+
     def setup_logging(self, debug_mode) -> logging.Logger:
         """Configure logging with color support."""
         # Timestamp for the log file name
@@ -162,7 +164,7 @@ class RosbagUploader:
         lftp_cmd = (
             f'lftp -u "{self.params.local_host_user},'
             f'{self.lftp_password}" {self.params.local_hostname} '
-            f'-e "pget -n 4 \"{local_file_path}\" '
+            f'-e "pget -n {self.lftp_parallel_threads} \"{local_file_path}\" '
             f'-o \"{str(remote_destination_file_path)}\"; bye"'
         )
 
