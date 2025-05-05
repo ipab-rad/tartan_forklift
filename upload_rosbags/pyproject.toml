@@ -14,3 +14,4 @@ packages = ["upload_rosbags", "upload_rosbags.modules"]
 
 [project.scripts]
 upload_rosbags = "upload_rosbags.upload_rosbags:main"
+compress_rosbags = "upload_rosbags.compress_rosbags:main"
