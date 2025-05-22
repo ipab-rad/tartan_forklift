@@ -9,19 +9,23 @@ CYCLONE_VOL=""
 CYCLONE_DIR=~/cyclone_dds.xml
 # Default in-vehicle rosbags directory
 ROSBAGS_DIR=/mnt/vdb/data
+# Defaut in-cloud exports directory
+EXPORTS_OUTPUT_DIR=/mnt/vdb/exported_data
 # Default value for headless
 headless=true
 
 # Function to print usage
 usage() {
     echo "
-Usage: dev.sh [-l|--local] [--path | -p ] [--headless] [--help | -h]
+Usage: dev.sh [-l|--local] [--path | -p ] [--output | -o ] [--headless] [--help | -h]
 
 Options:
     -l | --local    Use default local cyclone_dds.xml config
                     Optionally point to absolute -l /path/to/cyclone_dds.xml
     -p | --path   ROSBAGS_DIR_PATH
                     Specify path to store recorded rosbags
+    -o | --output EXPORTS_OUTPUT_DIR
+                    Specify path where exported data is stored
     --headless      Run the Docker image without X11 forwarding
     -h | --help     Display this help message and exit.
     "
@@ -41,6 +45,15 @@ while [[ "$#" -gt 0 ]]; do
         -p|--path)
             if [[ -n "$2" && "$2" != -* ]]; then
                 ROSBAGS_DIR="$2"
+                shift
+            else
+                echo "Error: Argument for $1 is missing."
+                usage
+            fi
+            ;;
+        -o|--output)
+            if [[ -n "$2" && "$2" != -* ]]; then
+                EXPORTS_OUTPUT_DIR="$2"
                 shift
             else
                 echo "Error: Argument for $1 is missing."
@@ -72,6 +85,11 @@ if [ ! -d "$ROSBAGS_DIR" ]; then
     exit 1
 fi
 
+# Verify EXPORTS_OUTPUT_DIR exists
+if [ ! -d "$EXPORTS_OUTPUT_DIR" ]; then
+    echo "$EXPORTS_OUTPUT_DIR does not exist! Please provide a valid path where exported data is stored"
+    exit 1
+fi
 
 MOUNT_X=""
 if [ "$headless" = "false" ]; then
@@ -90,6 +108,13 @@ docker build \
 # Get the absolute path of the script
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
+KEYS_FILE=$SCRIPT_DIR/keys/dataset_keys.env
+# Check this file exist, exit otherwise
+if [ ! -f "$KEYS_FILE" ]; then
+    echo "$KEYS_FILE does not exist! Docker container will not run"
+    exit 1
+fi
+
 # Run docker image with local code volumes for development
 docker run -it --rm --net host --privileged \
     --user "$(id -u):$(id -g)" \
@@ -99,7 +124,10 @@ docker run -it --rm --net host --privileged \
     -v /dev:/dev \
     -v /tmp:/tmp \
     $CYCLONE_VOL \
+    -v $KEYS_FILE:/keys/dataset_keys.env \
+    -v $EXPORTS_OUTPUT_DIR:/opt/ros_ws/exported_data \
     -v $ROSBAGS_DIR:/opt/ros_ws/rosbags \
     -v $SCRIPT_DIR/rosbag_util:/opt/ros_ws/rosbag_util \
+    -v $SCRIPT_DIR/scripts:/opt/ros_ws/scripts \
     -v /etc/localtime:/etc/localtime:ro \
     tartan_forklift:latest-dev
