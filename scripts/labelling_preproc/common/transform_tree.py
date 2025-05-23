@@ -1,22 +1,29 @@
 """
-A module to parse a YAML transform tree and compute transforms.
+Module to parse a YAML transform tree and compute transforms.
 
-Implement a TransformTree class that replicates the behaviour
+Implements a TransformTree class that replicates the behaviour
 of the ROS 2 TF tree.
 """
 
-import yaml
-import numpy as np
-from scipy.spatial.transform import Rotation as R
 from collections import defaultdict
+
+import numpy as np
+
+from scipy.spatial.transform import Rotation as R
+
+import yaml
 
 
 class Transform:
-    """
-    Represents a rigid transform using translation and quaternion.
-    """
+    """Represents a rigid homogeneous transformation matrix."""
 
     def __init__(self, matrix: np.ndarray):
+        """
+        Initialise the Transform object with a 4x4 matrix.
+
+        Args:
+            matrix: 4x4 numpy array representing the transformation.
+        """
         self._matrix = matrix
         self.x, self.y, self.z = matrix[:3, 3]
 
@@ -26,6 +33,9 @@ class Transform:
     def matrix(self) -> np.ndarray:
         """
         Return the 4x4 homogeneous transformation matrix.
+
+        Returns:
+            A numpy 4x4 array.
         """
         return self._matrix
 
@@ -38,7 +48,7 @@ class TransformTree:
     between any two connected frames in a static transform graph.
     """
 
-    def __init__(self, yaml_file_path: str):
+    def __init__(self, yaml_file_path: str) -> None:
         """
         Load and parse the YAML file containing transforms.
 
@@ -66,13 +76,13 @@ class TransformTree:
 
     def _transform_to_matrix(self, tf: dict) -> np.ndarray:
         """
-        Convert a translation + quaternion dict into a 4x4 matrix.
+        Convert a translation + quaternion dictionary into a 4x4 matrix.
 
         Args:
-            tf: Dictionary with x, y, z, qx, qy, qz, qw.
+            tf: Dictionary with keys x, y, z, qx, qy, qz, qw.
 
         Returns:
-            4x4 numpy array representing the transform.
+            A 4x4 numpy array representing the transform.
         """
         trans = np.array([tf['x'], tf['y'], tf['z']])
         quat = np.array([tf['qx'], tf['qy'], tf['qz'], tf['qw']])
@@ -87,13 +97,13 @@ class TransformTree:
         Return the path from the root to the given frame.
 
         Args:
-            frame: Frame name to trace upward.
+            frame: Frame name to trace upwards.
 
         Returns:
-            List of frames from root to the input frame.
+            A list of frame names from the root to the input frame.
 
         Raises:
-            KeyError: If the frame is not found.
+            KeyError: If the frame is not found in the tree.
         """
         if frame not in self.parents and frame not in self.children:
             raise KeyError(f"Frame '{frame}' is not in the tree.")
@@ -105,16 +115,18 @@ class TransformTree:
             path.append(current)
         return list(reversed(path))
 
-    def _find_common_ancestor(self, path_a: list[str], path_b: list[str]):
+    def _find_common_ancestor(
+        self, path_a: list[str], path_b: list[str]
+    ) -> tuple[str, int, int]:
         """
-        Find the deepest shared ancestor between two paths.
+        Find the deepest shared ancestor between two transformation paths.
 
         Args:
             path_a: List of frames from root to target_frame.
             path_b: List of frames from root to source_frame.
 
         Returns:
-            Tuple: (common_frame, index_in_a, index_in_b)
+            A tuple (common_frame, index_in_a, index_in_b).
 
         Raises:
             RuntimeError: If there is no shared ancestor.
@@ -127,23 +139,23 @@ class TransformTree:
             last_common = (path_a[i], i, i)
 
         if last_common is None:
-            raise RuntimeError("No common ancestor found.")
+            raise RuntimeError('No common ancestor found.')
 
         return last_common
 
     def get_transform(self, target_frame: str, source_frame: str) -> Transform:
         """
-        Compute the transform that maps points from source_frame to target_frame.
+        Compute the transform from source_frame to target_frame.
 
         Args:
-            target_frame: Target frame name.
-            source_frame: Source frame name.
+            target_frame: Name of the target frame.
+            source_frame: Name of the source frame.
 
         Returns:
-            Transform object representing the transform.
+            A Transform object representing the transformation.
 
         Raises:
-            KeyError: If frames are not connected or unknown.
+            KeyError: If the frames are not connected or unknown.
         """
         if target_frame == source_frame:
             return Transform(np.eye(4))
