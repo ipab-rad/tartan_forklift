@@ -9,7 +9,7 @@ CYCLONE_VOL=""
 CYCLONE_DIR=~/cyclone_dds.xml
 # Default in-vehicle rosbags directory
 ROSBAGS_DIR=/mnt/vdb/data
-# Defaut in-cloud exports directory
+# Default in-cloud exports directory
 EXPORTS_OUTPUT_DIR=/mnt/vdb/exported_data
 # Default value for headless
 headless=true

@@ -1,4 +1,9 @@
-#!/usr/bin/python3
+"""
+Module to define Segments.ai sample formats.
+
+For more information the sample types/structs used here please refer to:
+    https://docs.segments.ai/reference/sample-types
+"""
 
 # Sensor sequence dictionary structure
 sensor_sequence_struct = {'name': '', 'task_type': '', 'attributes': {}}
@@ -46,30 +51,30 @@ pcd_struct = {
 }
 
 camera_image_struct = {
-    "url": "image_url",
-    "row": 0,  # Row when displaying multiple camera images
-    "col": 0,  # Col when displaying multiple camera images
-    "intrinsics": {
-        "intrinsic_matrix": [
+    'url': 'image_url',
+    'row': 0,  # Row when displaying multiple camera images
+    'col': 0,  # Col when displaying multiple camera images
+    'intrinsics': {
+        'intrinsic_matrix': [
             [0, 0, 0],
             [0, 0, 0],
             [0, 0, 0],
         ]
     },
-    "extrinsics": {
-        "translation": {"x": 0, "y": 0, "z": 0},
-        "rotation": {"qx": 0, "qy": 0, "qz": 0, "qw": 0},
+    'extrinsics': {
+        'translation': {'x': 0, 'y': 0, 'z': 0},
+        'rotation': {'qx': 0, 'qy': 0, 'qz': 0, 'qw': 0},
     },
-    "distortion": {
-        "model": "brown-conrady",
-        "coefficients": {
-            "k1": 0,
-            "k2": 0,
-            "k3": 0,
-            "p1": 0,
-            "p2": 0,
+    'distortion': {
+        'model': 'brown-conrady',
+        'coefficients': {
+            'k1': 0,
+            'k2': 0,
+            'k3': 0,
+            'p1': 0,
+            'p2': 0,
         },
     },
-    "camera_convention": "OpenCV",
-    "name": "camera_fsp_l",
+    'camera_convention': 'OpenCV',
+    'name': 'camera_fsp_l',
 }

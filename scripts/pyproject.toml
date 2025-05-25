@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tartan_forklift"
 version = "0.1.0"
-description = "A collection of tools for pre/post processsing IPAB vehicle data."
+description = "A collection of tools for pre/post processing IPAB vehicle data."
 authors = [{ name = "Hector Cruz", email = "hcruzgo@ed.ac.uk" }]
 dependencies = []
 

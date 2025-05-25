@@ -1,13 +1,14 @@
 """Camera calibration parser."""
 
-import yaml
 from dataclasses import dataclass
+
+import yaml
 
 
 @dataclass
 class Intrinsics:
     """
-    Pinhole camera intrinsic values
+    Pinhole camera intrinsic values.
 
     fx, fy: focal length in pixels
     cx, cy: offsets (in pixels) of the principal point
@@ -23,7 +24,7 @@ class Intrinsics:
 @dataclass
 class Distortion:
     """
-    Brown-Conrady distortion coefficients
+    Brown-Conrady distortion coefficients.
 
     k1, k2, k3: radial distortion coefficients
     p1, p2: tangential distortion coefficients
@@ -40,7 +41,7 @@ class Distortion:
 @dataclass
 class CameraCalibrationData:
     """
-    Camera calibration data
+    Camera calibration data.
 
     frame_id: camera frame id
     intrinsics: camera intrinsic values
@@ -53,20 +54,16 @@ class CameraCalibrationData:
 
 
 class CameraCalibrationParser:
-    """
-    Camera calibration params parser
-    """
-
-    def __init__(self):
-        pass
+    """Camera calibration params parser."""
 
     def get_intrinsics(self, camera_matrix: dict) -> Intrinsics:
         """
         Parse the camera matrix and return the intrinsic values.
 
         Args:
-            camera_matrix (dict): Dictionary containing a 'data' key with a flat list
-                of 9 elements representing the 3x3 intrinsic matrix in row-major order:
+            camera_matrix (dict): Dictionary containing a 'data' key with a
+            flat list of 9 elements representing the 3x3 intrinsic matrix
+            in row-major order:
                 [fx, 0, cx,
                  0, fy, cy,
                  0,  0, 1 ], where:
@@ -111,10 +108,12 @@ class CameraCalibrationParser:
         Parse the camera intrinsics file and return the calibration data.
 
         Args:
-            camera_calibration_file (str): Path to the YAML file containing camera calibration parameters.
+            camera_calibration_file (str): Path to the YAML file containing
+                                           camera calibration parameters.
 
         Returns:
-            CameraCalibrationData: Full calibration data including frame ID, intrinsics, and distortion.
+            CameraCalibrationData: Full calibration data including frame ID,
+                                   intrinsics, and distortion.
 
         Raises:
             FileNotFoundError: If the YAML file does not exist.

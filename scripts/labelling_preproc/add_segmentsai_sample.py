@@ -1,28 +1,41 @@
 #!/usr/bin/python3
-
-import sys
+"""Module to create/upload a multi-sensor sequence to Segments.ai."""
 import copy
-import yaml
 import json
+import sys
 from pathlib import Path
 
 from labelling_preproc.common.ego_setup import EgoPoses
+from labelling_preproc.common.s3_client import SegmentS3Client
 from labelling_preproc.common.sample_formats import (
     camera_ids_list,
     sensor_sequence_struct,
 )
-from labelling_preproc.common.sensor_frame_ceator import SensorFrameCreator
-from labelling_preproc.common.s3_client import SegmentS3Client
+from labelling_preproc.common.sensor_frame_creator import SensorFrameCreator
 from labelling_preproc.common.utils import (
-    get_env_var,
-    file_exists,
     directory_exists,
+    file_exists,
+    get_env_var,
 )
+
+import yaml
 
 
 class SegmentsSampleCreator:
-    def __init__(self):
+    """
+    Provide an interface to create/upload a multi-sensor sequence.
 
+    It mainly parses the exported data containing in the host directory
+    and creates a multi-sensor sequence in a pre-existing Segments.ai dataset.
+    This class uses the SegmentS3Client to interact with the Segments.ai API
+    to upload a multi-sensor sequence.
+
+    For more information about muli-sensor sequences, refer to:
+    https://docs.segments.ai/reference/sample-types#multi-sensor-sequence
+    """
+
+    def __init__(self):
+        """Initialise class."""
         # Get Segment API key from env variable
         api_key = get_env_var('SEGMENTS_API_KEY')
 
@@ -32,7 +45,34 @@ class SegmentsSampleCreator:
     def add(
         self, dataset_name: str, sequence_name: str, local_data_directory: Path
     ):
+        """
+        Create and upload a multi-sensor sequence to a pre-existing dataset.
 
+        This method read ROS exported data stored in `local_data_directory`,
+        parses the metadata files using other sub-modules, and creates
+        a multi-sensor sequence in the specified Segments.ai dataset with
+        a defined sequence name.
+        The method expects the following files to be present in the
+        `local_data_directory`:
+            - `export_metadata.yaml`: Contains metadata about the export.
+            - `upload_metadata.json`: Contains information on where the data
+                                      is stored in S3.
+            - A `.tum` file: Contains the vehicle trajectory poses.
+
+        Args:
+            dataset_name : Name of the pre-existing dataset in Segments.ai
+            sequence_name : Desired name for the sequence sample
+            local_data_directory : Path to the data directory
+
+        Raises:
+            FileNotFoundError: If the provided directory or required files
+                               do not exist.
+            ValueError: If a .tum files is not found or if the number of
+                        trajectory poses does not match the number of frames.
+            NotFoundError:  If the specified dataset does not
+                            exist in Segments.ai.
+
+        """
         # Verify the dataset exists
         self.client.verify_dataset(dataset_name)
 
@@ -57,20 +97,21 @@ class SegmentsSampleCreator:
         # Search for a .tum file
         tum_files = list(local_data_directory.glob('*.tum'))
         if not tum_files:
-            raise ValueError(f'Trajectory file (.tum ) not found.')
+            raise ValueError('Trajectory file (.tum ) not found.')
 
         # Initialise ego_poses based on .tum file
         ego_poses = EgoPoses(tum_files[0])
 
         sync_key_frames = export_metadata_yaml.get('time_sync_groups', [])
 
-        # Verify that the number of trajectory poses matches the number of key frames
+        # Verify that the number of trajectory poses matches the
+        #   number of key frames
         [ok, msg] = ego_poses.validatePoseCount(len(sync_key_frames))
 
         if not ok:
             raise ValueError(
-                f'The number of poses is not equal to the number of key frames.\n'
-                f'{msg}\n'
+                'The number of poses is not equal to the number of key frames.'
+                f'\n{msg}\n'
             )
 
         # Initialise sensors' frames lists
@@ -140,11 +181,17 @@ class SegmentsSampleCreator:
 
 
 def main():
+    """
+    Entry point for the script.
+
+    Parses command-line arguments and runs the SegmentsSampleCreator.
+    """
     # Ensure command-line argument is provided
     if len(sys.argv) < 4:
         print(
             'ERROR: Please provide the required arguments\n'
-            'add_segmentsai_sample <dataset_name> <sequence_name> <data_directory>',
+            'add_segmentsai_sample '
+            '<dataset_name> <sequence_name> <data_directory>',
             file=sys.stderr,
         )
         sys.exit(1)
