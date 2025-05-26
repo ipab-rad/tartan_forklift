@@ -127,6 +127,7 @@ docker run -it --rm --net host --privileged \
     -v $KEYS_FILE:/keys/dataset_keys.env \
     -v $EXPORTS_OUTPUT_DIR:/opt/ros_ws/exported_data \
     -v $ROSBAGS_DIR:/opt/ros_ws/rosbags \
+    -v $SCRIPT_DIR/config:/opt/ros_ws/config \
     -v $SCRIPT_DIR/rosbag_util:/opt/ros_ws/rosbag_util \
     -v $SCRIPT_DIR/scripts:/opt/ros_ws/scripts \
     -v /etc/localtime:/etc/localtime:ro \

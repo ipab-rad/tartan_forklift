@@ -3,6 +3,7 @@ set -e
 
 # Setup ROS2 env
 source "/opt/ros/$ROS_DISTRO/setup.bash"
+source "/opt/ros_ws/install/setup.bash"
 
 # Load Dataset keys if file exists
 if [ -f /keys/dataset_keys.env ]; then

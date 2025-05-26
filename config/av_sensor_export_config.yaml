@@ -1,0 +1,89 @@
+# Configuration for processing ROS2 bag files
+
+storage_id: "mcap"
+
+# List of topics to extract from the ROS2 bag
+topics:
+  # Configuration for Pointclouds, defined first to use their timestamp for sensor sync
+  - name: "/sensor/lidar/top/points"  # 10Hz
+    type: "PointCloud2"
+    sample_interval: 1                # 10Hz
+    topic_dir: "lidar/top"
+
+  # Configuration for Compressed Images
+  - name: "/sensor/camera/fsp_l/image_rect_color/compressed"   # 20Hz
+    type: "CompressedImage"
+    sample_interval: 1                                         # 20Hz
+    topic_dir: "camera/fsp_l"
+
+  - name: "/sensor/camera/fsp_l/camera_info"
+    type: "CameraInfo"
+    sample_interval: 0
+    topic_dir: "camera/fsp_l"
+
+  - name: "/sensor/camera/rsp_l/image_rect_color/compressed"   # 20Hz
+    type: "CompressedImage"
+    sample_interval: 1                                         # 20Hz
+    topic_dir: "camera/rsp_l"
+
+  - name: "/sensor/camera/rsp_l/camera_info"
+    type: "CameraInfo"
+    sample_interval: 0
+    topic_dir: "camera/rsp_l"
+
+  - name: "/sensor/camera/lspf_r/image_rect_color/compressed"  # 20Hz
+    type: "CompressedImage"
+    sample_interval: 1                                         # 20Hz
+    topic_dir: "camera/lspf_r"
+
+  - name: "/sensor/camera/lspf_r/camera_info"
+    type: "CameraInfo"
+    sample_interval: 0
+    topic_dir: "camera/lspf_r"
+
+  - name: "/sensor/camera/lspr_l/image_rect_color/compressed"  # 20Hz
+    type: "CompressedImage"
+    sample_interval: 1                                         # 20Hz
+    topic_dir: "camera/lspr_l"
+
+  - name: "/sensor/camera/lspr_l/camera_info"
+    type: "CameraInfo"
+    sample_interval: 0
+    topic_dir: "camera/lspr_l"
+
+  - name: "/sensor/camera/rspf_l/image_rect_color/compressed"  # 20Hz
+    type: "CompressedImage"
+    sample_interval: 1                                         # 10Hz
+    topic_dir: "camera/rspf_l"
+
+  - name: "/sensor/camera/rspf_l/camera_info"
+    type: "CameraInfo"
+    sample_interval: 0
+    topic_dir: "camera/rspf_l"
+
+  - name: "/sensor/camera/rspr_r/image_rect_color/compressed"  # 20Hz
+    type: "CompressedImage"
+    sample_interval: 1                                         # 20Hz
+    topic_dir: "camera/rspr_r"
+
+  - name: "/sensor/camera/rspr_r/camera_info"
+    type: "CameraInfo"
+    sample_interval: 0
+    topic_dir: "camera/rspr_r"
+
+  - name: "/tf_static"
+    type: "TF"
+    sample_interval: 0
+    topic_dir: "extrinsics"
+
+#  # Configuration for IMU
+#   - name: "/sensor/imu/front/data"                            # 200Hz
+#     type: "IMU"
+#     sample_interval: 1                                        # 200Hz
+#     topic_dir: "imu"
+
+#  # Configuration for GPS
+#   - name: "/sensor/gps/nav_sat_fix"                           # 20Hz
+#     type: "GPS"
+#     sample_interval: 1                                        # 20Hz
+#     topic_dir: "gps"
