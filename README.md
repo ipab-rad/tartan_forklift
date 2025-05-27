@@ -1,5 +1,131 @@
-# tartan_dataset_management
-Collection of tools to manage ROSbag recordings data from AV vehicle
+# Tartan Forklift
+
+Collection of tools to manage ROSbag recordings data from AV vehicle.
+
+## Labelling preproc
+
+This package contains different modules to read and parse exported ROS sensor data to create and prepare a dataset sample for the [Segments.ai](https://segments.ai/) platform for labelling.
+
+Currently, the modules assume the following:
+
+  1. A ROS bag was exported using [ipab-rad/tartan_rosbag_exporter](https://github.com/ipab-rad/tartan_rosbag_exporter).
+  2. The user is familiar with Segments.ai platform and its sample formats, and has created a dataset with [multi-sensor sequence](https://docs.segments.ai/reference/sample-types#multi-sensor-sequence) support.
+  3. The user has access to both EIDF S3 and Segments.ai.
+
+### Usage guide
+
+To use the `labelling_preproc`'s modules to upload and add a **multi-sensor sequence** to segments.ai, you will need access key tokens.
+
+Create a file named `dataset_keys.env` inside a `keys` directory in the parent directory of this repository:
+
+```bash
+mkdir -p keys && touch keys/dataset_keys.env
+```
+
+Add the following environment variables to `dataset_keys.env`:
+
+```bash
+# EIDF AWS S3
+AWS_ACCESS_KEY_ID=my_access_key_id
+AWS_SECRET_ACCESS_KEY=my_secret_access_key
+AWS_ENDPOINT_URL=my_s3_organisation_url
+BUCKET_NAME=my_bucket_name
+EIDF_PROJECT_NAME=my_projectxyz
+
+# Segments.ai key
+SEGMENTS_API_KEY=my_segment_ai_api_key
+```
+
+The `dev.sh` script will attempt to locate the `dataset_keys.env` file. If the file is missing or incorrectly named, the script will throw an error. File and path names are case-sensitive.
+
+For access credentials, please contact [Hector Cruz](@hect95) or [Alejandro Bordallo](@GreatAlexander).
+
+#### Build and run the Docker container
+
+To build and run the Docker container interactively, use:
+
+```bash
+./dev.sh -l -p <rosbags_directory> -o <exported_data_directory>
+```
+
+where:
+
+- `<rosbags_directory>`: Parent directory containing your ROS bags recordings
+- `<exported_data_directory>`: Parent directory where the data is/will be exported.
+
+The input directories will be mounted in `/opt/ros_ws/rosbags` and `/opt/ros_ws/exported_data` in the container respectively.
+
+After running the Docker container, install the Python modules:
+
+```bash
+pip install -e ./scripts
+```
+
+#### Export your ROS bags
+
+As mentioned above, the `labelling_preproc` modules expect exported data before creating a sample. You can export your rosbags with the following command:
+
+```bash
+cd /opt/ros_ws
+
+ros2 run ros2_bag_exporter bag_exporter --ros-args \
+  -p rosbags_directory:=./rosbags/<my_recording_directory> \
+  -p output_directory:=./exported_data \
+  -p config_file:=./config/av_sensor_export_config.yaml
+```
+
+The [config/av_sensor_export_config.yaml](./config/av_sensor_export_config.yaml) is the default config file that tells `ros2_bag_exporter` which sensor topics and data formats to use.
+
+The exporter will create a directory inside `exported_data/`. This directory will contain:
+
+- Extracted point clouds (`.pcd`)
+- Images (`.jpg`)
+- `export_metadata.yaml`
+
+We'll refer to this directory as `<data_directory>`.
+
+#### Add a multi-sensor sequence sample
+
+Create a new dataset on the Segments.ai platform if you haven't already. For consistency, name the dataset exactly the same as your exported `<data_directory>` directory. On Segments.ai, datasets follow the format `organisation_name/dataset_name`. Therefore, your full `dataset_name` should be `UniversityOfEdinburgh/<data_directory>_name`, where `UniversityOfEdinburgh` is the organisation name currently in use. This naming convention helps keep your exported data and Segments.ai datasets aligned.
+
+1. **Extract the Ego Trajectory from the ROSbag**
+
+    ```bash
+    generate_ego_trajectory <my_path_to_rosbag.mcap> <data_directory>
+    ```
+
+    A `.tum` file with the same name as your rosbag should appear in `<data_directory>`.
+
+2. **Upload Data to S3**
+
+    To upload the extracted data to either EIDF or Segments.ai AWS S3, run:
+
+    ```bash
+    upload_data <dataset_name> <data_directory> eidf
+    # Or
+    upload_data <dataset_name> <data_directory> segments
+    ```
+
+    If no S3 organisation is specified, `eidf` is used by default.
+
+    After the upload, you should see an `upload_metadata.json` file inside `<data_directory>`.
+
+3. **Add a multi-sensor sample to Segments.ai**
+
+    Run the script:
+
+    ```bash
+    add_segmentsai_sample <dataset_name> <sequence_name> <data_directory>
+    ```
+
+    where:
+
+    - `<dataset_name>`: The full dataset name on Segments.ai
+    - `<sequence_name>`: Desired sequence name for the multi-sensor sample
+        - Ensure the sequence name is unique within your dataset; otherwise, the sample will not be uploaded
+    - `<data_directory>`: Directory with the extracted rosbags and metadata files
+
+If successful, you will see your new sequence listed in the _Samples_ tab on your dataset page.
 
 ## Metadata Generator Usage
 
