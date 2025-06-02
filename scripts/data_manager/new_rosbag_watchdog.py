@@ -20,7 +20,7 @@ class RosbagRecordingMeta:
     received_rosbags: list[Path] = None
 
 
-class NewRosbagsWatchdog(FileSystemEventHandler):
+class NewRosbagWatchdog(FileSystemEventHandler):
     """
     Watchdog handler for new ROS bag recordings.
 
@@ -101,7 +101,7 @@ class NewRosbagsWatchdog(FileSystemEventHandler):
         if meta is None:
             # First time seeing this directory, no files yet
             self.logger.debug(
-                '[NewRosbagsWatchdog] New rosbag directory detected: '
+                '[NewRosbagWatchdog] New rosbag directory detected: '
                 f'{rosbag_directory}'
             )
             self.rosbags_directories[rosbag_directory] = RosbagRecordingMeta(
@@ -125,7 +125,7 @@ class NewRosbagsWatchdog(FileSystemEventHandler):
         if meta is None:
             # First time seeing this directory, no metadata yet
             self.logger.debug(
-                '[NewRosbagsWatchdog] New rosbag directory detected: '
+                '[NewRosbagWatchdog] New rosbag directory detected: '
                 f'{rosbag_directory}'
             )
             self.rosbags_directories[rosbag_directory] = RosbagRecordingMeta(
@@ -143,7 +143,7 @@ class NewRosbagsWatchdog(FileSystemEventHandler):
 
         if self._all_rosbags_received(meta):
             self.logger.debug(
-                '[NewRosbagsWatchdog] All ROS bags received for: '
+                '[NewRosbagWatchdog] All ROS bags received for: '
                 f'{rosbag_directory}'
             )
             self.rosbag_recording_queue.put(rosbag_directory)

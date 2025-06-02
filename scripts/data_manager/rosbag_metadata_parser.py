@@ -28,10 +28,10 @@ class RosbagMetadataParser:
         with open(metadata_file_path) as file:
             metadata = yaml.safe_load(file)
             recording_info = metadata.get('rosbag2_bagfile_information')
-            rosbag_files_list = recording_info.get('relative_file_paths')
+            rosbag_file_list = recording_info.get('relative_file_paths')
             parent_directory = metadata_file_path.parent
             rosbag_files = []
-            for rosbag_file in rosbag_files_list:
+            for rosbag_file in rosbag_file_list:
                 rosbag_file_path = parent_directory / rosbag_file
                 rosbag_files.append(rosbag_file_path)
 

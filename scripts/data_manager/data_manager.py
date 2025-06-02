@@ -7,7 +7,7 @@ from datetime import datetime
 
 import colorlog
 
-from data_manager.new_rosbags_watchdog import NewRosbagsWatchdog
+from data_manager.new_rosbag_watchdog import NewRosbagWatchdog
 
 from watchdog.observers import Observer
 
@@ -21,7 +21,7 @@ class DataManager:
     A recording is defined by a `metadata.yaml` file and one or more ROS bags.
 
     It enters a polling loop and checks for new recordings using the
-    `NewRosbagsWatchdog`. When a new recording is detected, the path is
+    `NewRosbagWatchdog`. When a new recording is detected, the path is
     extracted for further processing.
 
     The path to monitor is passed via command-line argument.
@@ -88,7 +88,7 @@ class DataManager:
             f'Starting DataManager to monitor directory: {rosbags_directory}'
         )
 
-        new_rosbag_watchdog = NewRosbagsWatchdog(self.logger)
+        new_rosbag_watchdog = NewRosbagWatchdog(self.logger)
 
         observer = Observer()
         observer.schedule(
