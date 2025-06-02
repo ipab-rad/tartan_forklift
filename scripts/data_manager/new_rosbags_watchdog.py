@@ -83,7 +83,7 @@ class NewRosbagsWatchdog(FileSystemEventHandler):
         """
         expected_set = set(rosbag_recording_meta.expected_rosbags)
         received_set = set(rosbag_recording_meta.received_rosbags)
-        return not expected_set != received_set
+        return expected_set == received_set
 
     def _handle_metadata_file(self, metadata_file: Path) -> None:
         """

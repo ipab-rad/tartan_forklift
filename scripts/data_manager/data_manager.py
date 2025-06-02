@@ -17,7 +17,7 @@ class DataManager:
     Monitor a directory and detect new ROS bag recordings.
 
     This class uses the Watchdog library to observe a target directory and
-    to detect when a new ROS bag recording is available
+    to detect when a new ROS bag recording is available.
     A recording is defined by a `metadata.yaml` file and one or more ROS bags.
 
     It enters a polling loop and checks for new recordings using the
@@ -30,7 +30,8 @@ class DataManager:
     def __init__(self, debug_mode: bool) -> None:
         """Initialise the DataManager and configure logging."""
         self.logger = self.setup_logging(debug_mode=debug_mode)
-        self.POLLING_INTERVAL = 1
+        # Polling interval in seconds to check for new recordings.
+        self.POLLING_INTERVAL_SEC = 1
 
     def setup_logging(self, debug_mode: bool) -> logging.Logger:
         """
@@ -108,7 +109,7 @@ class DataManager:
 
                     # TODO: Process the new recording
 
-                time.sleep(self.POLLING_INTERVAL)
+                time.sleep(self.POLLING_INTERVAL_SEC)
         except KeyboardInterrupt:
             self.logger.info('DataManager interrupted by user.')
             observer.stop()
