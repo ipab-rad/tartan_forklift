@@ -29,7 +29,7 @@ RUN apt-get update \
         python3-pip \
         python3-vcstool \
     && pip install --no-cache-dir mcap pandas colorama \
-       segments-ai awscli boto3 scipy \
+       segments-ai awscli boto3 scipy watchdog colorlog \
     && pip install --no-cache-dir --upgrade setuptools pip \
     && rm -rf /var/lib/apt/lists/*
 
