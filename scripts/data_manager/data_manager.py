@@ -92,7 +92,7 @@ class DataManager:
 
         Call the `ros2_bag_exporter bag_exporter` node with the given
         rosbag directory, `self.output directory`, and
-        `self.exporter_config_file`.Parse the node stdout + stderr to
+        `self.exporter_config_file`. Parse the node stdout + stderr to
         locate and return the path where data was exported, or
         None if extraction fails.
 
