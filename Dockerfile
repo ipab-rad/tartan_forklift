@@ -111,7 +111,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV EXPORTER=$ROS_WS/src/tartan_rosbag_exporter
-RUN git clone -b v1.0.0 https://github.com/ipab-rad/tartan_rosbag_exporter.git $EXPORTER \
+RUN git clone -b 1.0.0 https://github.com/ipab-rad/tartan_rosbag_exporter.git $EXPORTER \
     && . /opt/ros/"$ROS_DISTRO"/setup.sh \
     && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
     && rm -rf $ROS_WS/build $EXPORTER
