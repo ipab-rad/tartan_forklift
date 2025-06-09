@@ -1,0 +1,336 @@
+{
+ "format_version": "0.1",
+ "categories": [
+  {
+   "name": "object",
+   "id": 1,
+   "color": [
+    0,
+    113,
+    188
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_car",
+   "id": 2,
+   "color": [
+    216,
+    82,
+    24
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_truck",
+   "id": 3,
+   "color": [
+    236,
+    176,
+    31
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_lorry",
+   "id": 4,
+   "color": [
+    125,
+    46,
+    141
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_van",
+   "id": 5,
+   "color": [
+    118,
+    171,
+    47
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_bus",
+   "id": 6,
+   "color": [
+    161,
+    19,
+    46
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_bicycle",
+   "id": 7,
+   "color": [
+    255,
+    0,
+    0
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "pedestrian",
+   "id": 8,
+   "color": [
+    255,
+    127,
+    0
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_tram",
+   "id": 9,
+   "color": [
+    190,
+    190,
+    0
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_taxi",
+   "id": 10,
+   "color": [
+    0,
+    0,
+    255
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "id": 11,
+   "name": "pram",
+   "color": [
+    170,
+    0,
+    255
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "input_type": "vector3",
+     "is_mandatory": true,
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "input_type": "quaternion",
+     "is_mandatory": true,
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  }
+ ],
+ "image_attributes": []
+}
