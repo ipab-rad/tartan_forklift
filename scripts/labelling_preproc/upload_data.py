@@ -27,30 +27,15 @@ class AssetUploader:
     `export_metadata.yaml` file describing assets information.
     """
 
-    def __init__(
-        self, dataset_name: str, data_directory: Path, s3_client_name='eidf'
-    ) -> None:
+    def __init__(self, s3_client_name='eidf') -> None:
         """
-        Initialise the uploader with dataset name, directory, and S3 client.
+        Initialise the uploader.
 
         Args:
-            dataset_name: The name of the dataset (may include org prefix).
-            data_directory: Directory containing exported data and metadata.
             s3_client_name: Name of the S3 organisation to
                             use ('eidf' or 'segmentsai').
         """
         self.s3 = self.get_s3_client(s3_client_name)
-        directory_exists(data_directory)
-        self.dataset_name = dataset_name.split('/')[-1]
-        self.local_data_directory = data_directory
-
-        self.metadata_file = self.local_data_directory / 'export_metadata.yaml'
-        file_exists(self.metadata_file)
-
-        with open(self.metadata_file) as file:
-            self.export_metadata_yaml = yaml.safe_load(file)
-
-        metadata_is_valid(self.export_metadata_yaml)
 
     def get_s3_client(self, s3_client_name: str):
         """
@@ -102,39 +87,61 @@ class AssetUploader:
             asset = self.s3.upload_file(f, label)
             return asset
 
-    def get_s3_key_from_path(self, file_path: Path, dataset_name: str) -> str:
+    def get_s3_key_from_path(
+        self, export_sub_directory: Path, file_path: Path
+    ) -> str:
         """
-        Convert a local file path into an S3 key rooted at the dataset name.
+        Make an S3 key by removing the export root’s parent from the file path.
 
-        An S3 key is a path-like string used to identify files in Amazon S3.
-        This function ensures the dataset name is the top-level directory in
-        the resulting key.
+        Assumes output from the `tartan_rosbag_exporter bag_export` ROS 2 node,
+        which produces a directory structure like:
+            <base_directory>/
+                └── <export_root>/
+                        └── <export_sub_directory>/
+                                └── <file>
 
-        If the file path already includes a folder that starts with the dataset
-        name, the key will start from that point. Otherwise, the dataset name
-        will be prepended to the full path.
+        The S3 key is computed relative to <base_directory>, so the entire
+        file path under <export_root> is preserved.
 
         Args:
-            file_path: The path to the file.
-            dataset_name: The dataset name to use as the key root.
-
-        Returns:
-            A forward-slash S3 key string starting at the dataset name.
+            export_sub_directory: Absolute path to the export sub-directory.
+            file_path: Absolute path to the file to be uploaded.
         """
-        for index, part in enumerate(file_path.parts):
-            if part.startswith(dataset_name):
-                return Path(*file_path.parts[index:]).as_posix()
+        export_root_parent = export_sub_directory.parent.parent
+        return str(file_path.relative_to(export_root_parent))
 
-        return f'{dataset_name}/{file_path.as_posix()}'
+    def load_export_metadata(self, export_sub_directory: Path) -> dict:
+        """
+        Load the export metadata from the specified directory.
 
-    def run(self):
+        Args:
+            export_sub_directory: The absolute path of the
+                                  subdirectory containing exported data.
+        """
+        directory_exists(export_sub_directory)
+        metadata_file = export_sub_directory / 'export_metadata.yaml'
+        file_exists(metadata_file)
+        with open(metadata_file) as file:
+            export_metadata = yaml.safe_load(file)
+
+        metadata_is_valid(export_metadata)
+
+        return export_metadata
+
+    def run(self, export_sub_directory: Path):
         """
         Start the uploading process based on metadata.
 
         Iterates through all time-synchronised groups, uploads associated
         lidar and camera assets, and records the resulting S3 URLs and UUIDs
         into a new metadata file.
+
+        Args:
+            export_sub_directory: The absolute path of the
+                                  sub-directory containing exported data.
         """
+        export_metadata = self.load_export_metadata(export_sub_directory)
+
         urls_list = {'assets_ids': {}}
 
         file_dict = {
@@ -144,9 +151,7 @@ class AssetUploader:
             's3_url': '',
         }
 
-        upload_metadata_file = (
-            self.local_data_directory / 'upload_metadata.json'
-        )
+        upload_metadata_file = export_sub_directory / 'upload_metadata.json'
 
         if upload_metadata_file.exists():
             raise ValueError(
@@ -155,24 +160,20 @@ class AssetUploader:
                 'Delete the file if you want to proceed.'
             )
 
-        total_goups = len(
-            self.export_metadata_yaml.get('time_sync_groups', [])
-        )
+        total_groups = len(export_metadata.get('time_sync_groups', []))
         progress = 1
 
-        for sync_group in self.export_metadata_yaml.get(
-            'time_sync_groups', []
-        ):
-            show_progress_bar('Uploading', progress, total_goups)
+        for sync_group in export_metadata.get('time_sync_groups', []):
+            show_progress_bar('Uploading', progress, total_groups)
 
             lidar_dict = deepcopy(file_dict)
             lidar_dict['local_file'] = sync_group['lidar']['file']
 
             lidar_file = Path(sync_group['lidar']['file'])
-            lidar_file_path = self.local_data_directory / lidar_file
+            lidar_file_path = export_sub_directory / lidar_file
 
             lidar_s3_key = self.get_s3_key_from_path(
-                lidar_file_path, self.dataset_name
+                export_sub_directory, lidar_file_path
             )
             lidar_dict['label'] = lidar_s3_key
 
@@ -193,10 +194,10 @@ class AssetUploader:
                 cam_dict = deepcopy(file_dict)
                 cam_dict['local_file'] = cam['file']
 
-                cam_file_path = self.local_data_directory / cam['file']
+                cam_file_path = export_sub_directory / cam['file']
 
                 cam_s3_key = self.get_s3_key_from_path(
-                    cam_file_path, self.dataset_name
+                    export_sub_directory, cam_file_path
                 )
                 cam_dict['label'] = cam_s3_key
 
@@ -227,12 +228,7 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'dataset_name',
-        type=str,
-        help='Dataset name including Segments.ai organisation account name',
-    )
-    parser.add_argument(
-        'data_directory',
+        'export_sub_directory',
         type=str,
         help='The directory containing the exported data to upload',
     )
@@ -249,13 +245,12 @@ def main():
     )
 
     args = parser.parse_args()
-    dataset_name = args.dataset_name
-    data_directory = Path(args.data_directory)
+    export_sub_directory = Path(args.export_sub_directory).resolve()
     s3_org = args.s3_org
 
     try:
-        uploader = AssetUploader(dataset_name, data_directory, s3_org)
-        uploader.run()
+        uploader = AssetUploader(s3_org)
+        uploader.run(export_sub_directory)
     except Exception as e:  # noqa: BLE001
         print(f'{e}')
 
