@@ -13,6 +13,8 @@ import colorlog
 
 from data_manager.new_rosbag_watchdog import NewRosbagWatchdog
 
+from labelling_preproc.dataset_creator import DatasetCreator
+
 from watchdog.observers import Observer
 
 
@@ -35,6 +37,8 @@ class DataManager:
         self,
         output_directory: str,
         exporter_config_file: str,
+        dataset_attributes_file: str,
+        s3_organisation: str,
         debug_mode: bool,
     ) -> None:
         """Initialise the DataManager and configure logging."""
@@ -43,6 +47,11 @@ class DataManager:
         self.POLLING_INTERVAL_SEC = 1
         self.output_directory = output_directory
         self.exporter_config_file = exporter_config_file
+        self.dataset_creator = DatasetCreator(
+            Path(dataset_attributes_file),
+            s3_organisation,
+            self.logger,
+        )
 
     def setup_logging(self, debug_mode: bool) -> logging.Logger:
         """
@@ -191,6 +200,15 @@ class DataManager:
                         f'Extraction completed --> {export_directory}'
                     )
 
+                    self.logger.info('Creating dataset from exported data...')
+
+                    # Create a dataset from the exported data
+                    dataset_name = self.dataset_creator.create(
+                        export_directory, Path(new_recording_path)
+                    )
+
+                    self.logger.info(f'New Dataset created: {dataset_name}\n')
+
                 time.sleep(self.POLLING_INTERVAL_SEC)
         except KeyboardInterrupt:
             self.logger.info('DataManager interrupted by user.')
@@ -209,21 +227,41 @@ def main() -> None:
     parser.add_argument(
         '--rosbags_directory',
         type=str,
+        required=True,
         help='Path to the directory to monitor for new rosbags.',
     )
 
     parser.add_argument(
         '--output_directory',
         type=str,
+        required=True,
         help='Parent directory to save exported data.',
     )
 
     parser.add_argument(
         '--export_config_file',
         type=str,
+        required=True,
         help='Configuration file for the bag exporter',
     )
 
+    parser.add_argument(
+        '--dataset_attributes_file',
+        type=str,
+        required=True,
+        help='Absolute path to the dataset attributes file.',
+    )
+    parser.add_argument(
+        '--s3_org',
+        type=str,
+        default='eidf',
+        choices=['eidf', 'segmentsai'],
+        nargs='?',
+        help=(
+            'Whether to upload to EIDF or Segments.ai AWS S3 '
+            '(Optional, default: eidf)'
+        ),
+    )
     parser.add_argument(
         '--debug',
         action='store_true',
@@ -234,10 +272,16 @@ def main() -> None:
     rosbags_directory = args.rosbags_directory
     output_directory = args.output_directory
     exporter_config_file = args.export_config_file
+    dataset_attributes_file = args.dataset_attributes_file
+    s3_organisation = args.s3_org
     debug_mode = args.debug
 
     data_manager = DataManager(
-        output_directory, exporter_config_file, debug_mode
+        output_directory,
+        exporter_config_file,
+        dataset_attributes_file,
+        s3_organisation,
+        debug_mode,
     )
 
     data_manager.run(rosbags_directory)

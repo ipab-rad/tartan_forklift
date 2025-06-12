@@ -1,30 +1,40 @@
 #!/bin/bash
 # ----------------------------------------------------------------
-# Build docker dev stage and add local code for live development
+# Build docker runtime stage and run it with the provided options
 # ----------------------------------------------------------------
 
 CYCLONE_VOL=""
+BASH_CMD=()
 
 # Default cyclone_dds.xml path
 CYCLONE_DIR=~/cyclone_dds.xml
-# Default in-vehicle rosbags directory
+# Default rosbags directory
 ROSBAGS_DIR=/mnt/vdb/data
-# Default in-cloud exports directory
+# Default export directory
 EXPORTS_OUTPUT_DIR=/mnt/vdb/exported_data
 
 # Function to print usage
 usage() {
     echo "
-Usage: dev.sh [-l|--local] [--path | -p ] [--output | -o ] [--headless] [--help | -h]
+Usage: runtime.sh [OPTIONS] [COMMAND]
 
 Options:
-    -l | --local    Use default local cyclone_dds.xml config
-                    Optionally point to absolute -l /path/to/cyclone_dds.xml
-    -p | --path   ROSBAGS_DIR_PATH
-                    Specify path to store recorded rosbags
-    -o | --output EXPORTS_OUTPUT_DIR
-                    Specify path where exported data is stored
-    -h | --help     Display this help message and exit.
+  -l, --local [PATH]      Use local cyclone_dds.xml configuration file in $HOME.
+                          Optionally provide an absolute path with -l /path/to/cyclone_dds.xml.
+  -p, --path PATH         Path to the directory where recorded rosbags are stored.
+                            Default: $ROSBAGS_DIR
+
+  -o, --output PATH       Path to the directory where exported data will be saved.
+                            Default: $EXPORTS_OUTPUT_DIR
+  -h, --help              Display this help message and exit.
+
+Arguments:
+  COMMAND                 Optional command to run inside the Docker container.
+                          Defaults to an interactive Bash shell if not specified.
+
+Examples:
+  runtime.sh                        # Run container with default paths and start bash
+  runtime.sh -p /data/rosbags ls    # Run 'ls' inside container with custom rosbag path
     "
     exit 1
 }
@@ -59,13 +69,18 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -h|--help) usage ;;
         *)
-            echo "Unknown option: $1"
-            usage
+            # Save all remaining args as the command
+            BASH_CMD=("$@")
+            break
             ;;
     esac
     shift
 done
 
+# If no command was given, default to bash
+if [[ ${#BASH_CMD[@]} -eq 0 ]]; then
+    BASH_CMD=("bash")
+fi
 
 # Verify CYCLONE_DIR exists
 if [ -n "$CYCLONE_VOL" ]; then
@@ -92,8 +107,8 @@ docker build \
     --build-arg USER_ID=$(id -u) \
     --build-arg GROUP_ID=$(id -g) \
     --build-arg USERNAME=tartan_forklift \
-    -t tartan_forklift:latest-dev \
-    -f Dockerfile --target dev .
+    -t tartan_forklift:latest \
+    -f Dockerfile --target runtime .
 
 # Get the absolute path of the script
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
@@ -105,15 +120,12 @@ if [ ! -f "$KEYS_FILE" ]; then
     exit 1
 fi
 
-# Run docker image with local code volumes for development
+# Run docker image
 docker run -it --rm --net host \
     --user "$(id -u):$(id -g)" \
     $CYCLONE_VOL \
     -v $KEYS_FILE:/keys/dataset_keys.env \
     -v $EXPORTS_OUTPUT_DIR:/opt/ros_ws/exported_data \
     -v $ROSBAGS_DIR:/opt/ros_ws/rosbags \
-    -v $SCRIPT_DIR/config:/opt/ros_ws/config \
-    -v $SCRIPT_DIR/rosbag_util:/opt/ros_ws/rosbag_util \
-    -v $SCRIPT_DIR/scripts:/opt/ros_ws/scripts \
     -v /etc/localtime:/etc/localtime:ro \
-    tartan_forklift:latest-dev
+    tartan_forklift:latest "${BASH_CMD[@]}"
