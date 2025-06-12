@@ -11,8 +11,6 @@ CYCLONE_DIR=~/cyclone_dds.xml
 ROSBAGS_DIR=/mnt/vdb/data
 # Default in-cloud exports directory
 EXPORTS_OUTPUT_DIR=/mnt/vdb/exported_data
-# Default value for headless
-headless=true
 
 # Function to print usage
 usage() {
@@ -26,7 +24,6 @@ Options:
                     Specify path to store recorded rosbags
     -o | --output EXPORTS_OUTPUT_DIR
                     Specify path where exported data is stored
-    --headless      Run the Docker image without X11 forwarding
     -h | --help     Display this help message and exit.
     "
     exit 1
@@ -60,7 +57,6 @@ while [[ "$#" -gt 0 ]]; do
                 usage
             fi
             ;;
-        --headless) headless=true ;;
         -h|--help) usage ;;
         *)
             echo "Unknown option: $1"
@@ -91,12 +87,6 @@ if [ ! -d "$EXPORTS_OUTPUT_DIR" ]; then
     exit 1
 fi
 
-MOUNT_X=""
-if [ "$headless" = "false" ]; then
-    MOUNT_X="-e DISPLAY=$DISPLAY -v /tmp/.X11-unix/:/tmp/.X11-unix"
-    xhost + >/dev/null
-fi
-
 # Build docker image up to dev stage
 docker build \
     --build-arg USER_ID=$(id -u) \
@@ -116,13 +106,8 @@ if [ ! -f "$KEYS_FILE" ]; then
 fi
 
 # Run docker image with local code volumes for development
-docker run -it --rm --net host --privileged \
+docker run -it --rm --net host \
     --user "$(id -u):$(id -g)" \
-    ${MOUNT_X} \
-    -e XAUTHORITY="${XAUTHORITY}" \
-    -e XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-    -v /dev:/dev \
-    -v /tmp:/tmp \
     $CYCLONE_VOL \
     -v $KEYS_FILE:/keys/dataset_keys.env \
     -v $EXPORTS_OUTPUT_DIR:/opt/ros_ws/exported_data \

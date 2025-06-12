@@ -12,8 +12,6 @@ CYCLONE_DIR=~/cyclone_dds.xml
 ROSBAGS_DIR=/mnt/vdb/data
 # Default export directory
 EXPORTS_OUTPUT_DIR=/mnt/vdb/exported_data
-# Default value for headless
-headless=true
 
 # Function to print usage
 usage() {
@@ -28,7 +26,6 @@ Options:
 
   -o, --output PATH       Path to the directory where exported data will be saved.
                             Default: $EXPORTS_OUTPUT_DIR
-  --x11                   Run the Docker container with X11 GUI support.
   -h, --help              Display this help message and exit.
 
 Arguments:
@@ -38,7 +35,6 @@ Arguments:
 Examples:
   runtime.sh                        # Run container with default paths and start bash
   runtime.sh -p /data/rosbags ls    # Run 'ls' inside container with custom rosbag path
-  runtime.sh --x11 bash             # Run bash with X11 support (GUI forwarding)
     "
     exit 1
 }
@@ -71,7 +67,6 @@ while [[ "$#" -gt 0 ]]; do
                 usage
             fi
             ;;
-        --x11) headless=false ;;
         -h|--help) usage ;;
         *)
             # Save all remaining args as the command
@@ -107,12 +102,6 @@ if [ ! -d "$EXPORTS_OUTPUT_DIR" ]; then
     exit 1
 fi
 
-MOUNT_X=""
-if [ "$headless" = "false" ]; then
-    MOUNT_X="-e DISPLAY=$DISPLAY -v /tmp/.X11-unix/:/tmp/.X11-unix"
-    xhost + >/dev/null
-fi
-
 # Build docker image up to dev stage
 docker build \
     --build-arg USER_ID=$(id -u) \
@@ -132,13 +121,8 @@ if [ ! -f "$KEYS_FILE" ]; then
 fi
 
 # Run docker image
-docker run -it --rm --net host --privileged \
+docker run -it --rm --net host \
     --user "$(id -u):$(id -g)" \
-    ${MOUNT_X} \
-    -e XAUTHORITY="${XAUTHORITY}" \
-    -e XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-    -v /dev:/dev \
-    -v /tmp:/tmp \
     $CYCLONE_VOL \
     -v $KEYS_FILE:/keys/dataset_keys.env \
     -v $EXPORTS_OUTPUT_DIR:/opt/ros_ws/exported_data \
