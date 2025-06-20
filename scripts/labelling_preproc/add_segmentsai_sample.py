@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 from labelling_preproc.common.ego_setup import EgoPoses
-from labelling_preproc.common.s3_client import SegmentS3Client
+from labelling_preproc.common.segments_wrapper_client import (
+    SegmentsWrrapperClient)
 from labelling_preproc.common.sample_formats import (
     camera_ids_list,
     sensor_sequence_struct,
@@ -34,13 +35,10 @@ class SegmentsSampleCreator:
     https://docs.segments.ai/reference/sample-types#multi-sensor-sequence
     """
 
-    def __init__(self):
+    def __init__(self, segments_client: SegmentsWrrapperClient):
         """Initialise class."""
-        # Get Segment API key from env variable
-        api_key = get_env_var('SEGMENTS_API_KEY')
-
         # Initialise Segments.ai client
-        self.client = SegmentS3Client(api_key)
+        self.client = segments_client
 
     def add(
         self, dataset_name: str, sequence_name: str, local_data_directory: Path
@@ -201,7 +199,11 @@ def main():
     sequence_name = sys.argv[2]
     data_directory = Path(sys.argv[3])
 
-    sample_creator = SegmentsSampleCreator()
+    # Get Segment API key from env variable
+    api_key = get_env_var('SEGMENTS_API_KEY')
+    segments_wrapper_client = SegmentsWrrapperClient(api_key)
+
+    sample_creator = SegmentsSampleCreator(segments_wrapper_client)
     sample_creator.add(dataset_name, sequence_name, data_directory)
 
 
