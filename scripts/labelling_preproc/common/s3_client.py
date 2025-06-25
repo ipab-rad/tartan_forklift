@@ -8,7 +8,7 @@ import boto3
 
 from botocore.config import Config
 
-from segments import SegmentsClient, exceptions
+from segments import SegmentsClient
 
 
 class TartanAsset:
@@ -70,84 +70,6 @@ class SegmentS3Client(S3Client):
         segment_asset = self.s3_client.upload_asset(file, file_key)
         asset = TartanAsset(segment_asset.url, segment_asset.uuid)
         return asset
-
-    def print_datasets(self) -> None:
-        """List all current datasets on Segments.ai."""
-        datasets = self.s3_client.get_datasets()
-        for dataset in datasets:
-            print(dataset.name, dataset.description)
-
-    def verify_dataset(self, dataset_name: str) -> None:
-        """
-        Verify that a dataset exists on Segments.ai.
-
-        Args:
-            dataset_name: The name of the dataset to verify.
-
-        Raises:
-            ValidationError: If dataset validation fails.
-            APILimitError: If the API limit is exceeded.
-            NotFoundError: If the dataset is not found.
-            TimeoutError: If the request times out.
-        """
-        try:
-            self.s3_client.get_dataset(dataset_name)
-        except exceptions.ValidationError as e:
-            raise exceptions.ValidationError(
-                f'Failed to validate "{dataset_name}" dataset.'
-            ) from e
-        except exceptions.APILimitError as e:
-            raise exceptions.APILimitError('API limit exceeded.') from e
-        except exceptions.NotFoundError as e:
-            raise exceptions.NotFoundError(
-                f'Dataset "{dataset_name}" does not exist. '
-                f'Please provide an existent dataset.'
-            ) from e
-        except exceptions.TimeoutError as e:
-            raise exceptions.TimeoutError(
-                'Request timed out. Try again later.'
-            ) from e
-
-    def add_sample(
-        self, dataset_name: str, sequence_name: str, attributes: dict
-    ) -> None:
-        """
-        Add a sample to a Segments.ai dataset.
-
-        Args:
-            dataset_name: The name of the dataset.
-            sequence_name: The sequence name within the dataset.
-            attributes: A dictionary containing sample attributes.
-
-        Raises:
-            ValidationError: If sample validation fails.
-            APILimitError: If the API limit is exceeded.
-            NotFoundError: If the dataset is not found.
-            AlreadyExistsError: If the sequence already exists.
-            TimeoutError: If the request times out.
-        """
-        try:
-            self.s3_client.add_sample(dataset_name, sequence_name, attributes)
-        except exceptions.ValidationError as e:
-            raise exceptions.ValidationError(
-                'Failed to validate sample.'
-            ) from e
-        except exceptions.APILimitError as e:
-            raise exceptions.APILimitError('API limit exceeded.') from e
-        except exceptions.NotFoundError as e:
-            raise exceptions.NotFoundError(
-                f'Dataset "{dataset_name}" does not exist. '
-                f'Please provide an existing dataset.'
-            ) from e
-        except exceptions.AlreadyExistsError as e:
-            raise exceptions.AlreadyExistsError(
-                f'The sequence "{sequence_name}" '
-                f'already exists in "{dataset_name}"'
-            ) from e
-        except exceptions.TimeoutError as e:
-            raise exceptions.TimeoutError(
-                'Request timed out while adding sample.'
-            ) from e
 
 
 class EIDFfS3Client(S3Client):
