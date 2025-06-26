@@ -206,8 +206,15 @@ class DataManager:
                     dataset_name = self.dataset_creator.create(
                         export_directory, Path(new_recording_path)
                     )
-
-                    self.logger.info(f'New Dataset created: {dataset_name}\n')
+                    if dataset_name:
+                        self.logger.info(
+                            f'New Dataset created: {dataset_name}\n'
+                        )
+                    else:
+                        self.logger.warning(
+                            'Failed to create dataset from recording '
+                            f'{Path(new_recording_path).name}'
+                        )
 
                 time.sleep(self.POLLING_INTERVAL_SEC)
         except KeyboardInterrupt:
