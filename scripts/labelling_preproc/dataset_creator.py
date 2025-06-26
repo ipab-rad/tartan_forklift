@@ -103,10 +103,11 @@ class DatasetCreator:
             Assuming the format '<path_name>_N'. If the format is invalid,
             return a high number to sort it at the end.
             """
+            TEN_THOUSAND = 10000
             try:
                 return int(path.name.rsplit('_', 1)[-1])
             except (IndexError, ValueError):
-                return 10000
+                return TEN_THOUSAND
 
         subdirs = []
         for item in export_directory.iterdir():
@@ -131,7 +132,7 @@ class DatasetCreator:
             recording_directory: Directory containing the ROS bag
                                         recording
         Returns:
-            An string with the dataset name if the creation was
+            A string with the dataset name if the creation was
              successful, none otherwise.
         """
         recording_name = recording_directory.name
@@ -155,15 +156,15 @@ class DatasetCreator:
             )
 
             if response.ok:
-                # Obtain dataset full name from the response' metadata
+                # Obtain dataset full name from the response's metadata
                 return response.metadata.full_name
             elif response.error in {
                 PreprocessingError.SegmentsAPILimitError,
                 PreprocessingError.SegmentsNetworkError,
                 PreprocessingError.SegmentsTimeoutError,
             }:
-                # We can recover from these errors, so we wait for few seconds
-                # before continuing with the loop
+                # We can recover from these errors, so we wait for a few
+                # seconds before continuing with the loop
                 self.logger.warning(
                     f'[DatasetCreator] Error {response.error.value} happened '
                     f'when creating a "{dataset_name}" dataset'
@@ -216,8 +217,8 @@ class DatasetCreator:
                 PreprocessingError.SegmentsNetworkError,
                 PreprocessingError.SegmentsTimeoutError,
             }:
-                # We can recover from these errors, so we wait for few seconds
-                # before continuing with the loop
+                # We can recover from these errors, so we wait for a few
+                # seconds before continuing with the loop
                 self.logger.warning(
                     f'[DatasetCreator] Error {response.error.value} happened '
                     f'when adding sample "{sequence_name}"'
@@ -271,7 +272,7 @@ class DatasetCreator:
                 f'{export_sub_directory}'
             )
 
-            # Generate ego trajectory from export's ROS bag
+            # Generate ego trajectory from export directory's ROS bag
             rosbag_file_name = self.get_rosbag_file_name(export_sub_directory)
 
             rosbag_file = recording_directory / rosbag_file_name
