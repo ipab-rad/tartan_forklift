@@ -5,7 +5,7 @@ from labelling_preproc.common.response import (
     PreprocessingResponse,
 )
 
-from segments import SegmentsClient, exceptions
+from segments import SegmentsClient, exceptions, typing
 
 
 class SegmentsClientWrapper:
@@ -54,6 +54,42 @@ class SegmentsClientWrapper:
             attributes=_attributes,
         )
 
+    def add_dataset(
+        self,
+        dataset_name: str,
+        task_type: str,
+        dataset_attributes: dict,
+        readme_str: str,
+        organisation_name: str,
+    ) -> PreprocessingResponse:
+        """
+        Add a new dataset in Segments.ai.
+
+        For further reference see:
+             https://sdkdocs.segments.ai/en/latest/client.html#create-a-dataset
+
+        Args:
+            dataset_name: Name of the dataset.
+            task_type: The type of the dataset.
+            dataset_attributes: A dictionary containing format and labels'
+                                categories.
+            readme_str: A string describing the summary of the dataset.
+            organisation_name: Segments.ai organisation name
+                               where the dataset is going to be created.
+        Returns:
+            PreprocessingResponse: Indicates success or failure and error info.
+        """
+        return self._handle_segments_errors(
+            func=self.client.add_dataset,
+            name=dataset_name,
+            task_type=task_type,
+            task_attributes=dataset_attributes,
+            category=typing.Category.STREET_SCENERY,  # Automotive category
+            readme=readme_str,
+            enable_3d_cuboid_rotation=True,
+            organization=organisation_name,
+        )
+
     def _handle_segments_errors(
         self, func, *args, **kwargs
     ) -> PreprocessingResponse:
@@ -70,8 +106,8 @@ class SegmentsClientWrapper:
             PreprocessingResponse: Response indicating success or error.
         """
         try:
-            func(*args, **kwargs)
-            return PreprocessingResponse(ok=True)
+            func_result = func(*args, **kwargs)
+            return PreprocessingResponse(ok=True, metadata=func_result)
         except exceptions.ValidationError as e:
             return PreprocessingResponse(
                 ok=False,

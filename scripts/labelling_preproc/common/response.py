@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class PreprocessingError(Enum):
@@ -21,5 +22,6 @@ class PreprocessingResponse:
     """Define a response for labelling pre-processing actions."""
 
     ok: bool = None
+    metadata: Any = None
     error: PreprocessingError = None
     error_message: str = None
