@@ -73,7 +73,7 @@ topics:
 
   - name: "/tf_static"
     type: "TF"
-    sample_interval: 0
+    sample_interval: 1
     topic_dir: "extrinsics"
 
 #  # Configuration for IMU
