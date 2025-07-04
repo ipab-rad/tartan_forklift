@@ -15,6 +15,8 @@ from data_manager.new_rosbag_watchdog import NewRosbagWatchdog
 
 from labelling_preproc.dataset_creator import DatasetCreator
 
+from s3_backup_agent.s3_backup_agent import S3RosbagBackupAgent
+
 from watchdog.observers import Observer
 
 
@@ -52,6 +54,7 @@ class DataManager:
             s3_organisation,
             self.logger,
         )
+        self.s3_backup_agent = S3RosbagBackupAgent(self.logger)
 
     def setup_logging(self, debug_mode: bool) -> logging.Logger:
         """
@@ -215,6 +218,12 @@ class DataManager:
                             'Failed to create dataset from recording '
                             f'{Path(new_recording_path).name}'
                         )
+
+                    # Set for S3 backup
+                    self.logger.info(
+                        f'Enqueuing {new_recording_path} for S3 backup'
+                    )
+                    self.s3_backup_agent.enqueue(Path(new_recording_path))
 
                 time.sleep(self.POLLING_INTERVAL_SEC)
         except KeyboardInterrupt:
