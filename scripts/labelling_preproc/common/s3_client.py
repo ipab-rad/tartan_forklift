@@ -75,7 +75,7 @@ class SegmentS3Client(S3Client):
 class EIDFfS3Client(S3Client):
     """Class to interface with EIDF S3."""
 
-    # FIXME: Hardcode the multipart parameters for now (#70)
+    # TODO: Hardcode the multipart parameters for now (#70)
     def __init__(
         self,
         project_name: str,
