@@ -10,7 +10,8 @@ authors = [{ name = "Hector Cruz", email = "hcruzgo@ed.ac.uk" }]
 dependencies = []
 
 [tool.setuptools]
-packages = ["labelling_preproc","labelling_preproc.common","data_manager"]
+packages = ["labelling_preproc","labelling_preproc.common","data_manager",
+            "s3_backup_agent"]
 
 [project.scripts]
 generate_ego_trajectory = "labelling_preproc.generate_ego_trajectory:main"
@@ -18,3 +19,4 @@ upload_data = "labelling_preproc.upload_data:main"
 add_segmentsai_sample = "labelling_preproc.add_segmentsai_sample:main"
 dataset_creator = "labelling_preproc.dataset_creator:main"
 data_manager = "data_manager.data_manager:main"
+s3_backup_agent = "s3_backup_agent.s3_backup_agent:main"
