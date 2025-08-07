@@ -28,6 +28,7 @@ RUN apt-get update \
         ros-"$ROS_DISTRO"-mola-lidar-odometry \
         python3-pip \
         python3-vcstool \
+        wget \
     && pip install --no-cache-dir mcap pandas colorama \
        segments-ai awscli boto3 scipy watchdog colorlog \
     && pip install --no-cache-dir --upgrade setuptools pip \
@@ -69,7 +70,7 @@ RUN groupadd -g $GROUP_ID $USERNAME && \
     usermod -aG sudo $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Setup ros2_bag_exporter
+# Setup tartan_rosbag_exporter
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive \
     apt-get -y --quiet --no-install-recommends install \
@@ -87,11 +88,12 @@ RUN apt-get update \
     && pip install --no-cache-dir mcap colorama \
     && rm -rf /var/lib/apt/lists/*
 
-ENV EXPORTER=$ROS_WS/src/tartan_rosbag_exporter
-RUN git clone -b 1.1.0 https://github.com/ipab-rad/tartan_rosbag_exporter.git $EXPORTER \
+RUN mkdir -p "$ROS_WS"/src \
+    && wget -q -O /tmp/exporter.tar.gz "https://github.com/ipab-rad/tartan_rosbag_exporter/archive/refs/tags/2.0.0.tar.gz" \
+    && tar -xzf /tmp/exporter.tar.gz -C "$ROS_WS"/src \
     && . /opt/ros/"$ROS_DISTRO"/setup.sh \
     && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release \
-    && rm -rf $ROS_WS/build $EXPORTER
+    && rm -rf "$ROS_WS"/build /tmp/exporter.tar.gz "$ROS_WS"/src
 
 # Give read/write permissions to the user on the ROS_WS directory
 RUN chown -R $USERNAME:$USERNAME $ROS_WS && \

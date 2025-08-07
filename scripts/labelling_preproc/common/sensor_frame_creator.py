@@ -57,7 +57,7 @@ class SensorFrameCreator:
         self.camera_calibration_parser = CameraCalibrationParser()
         self.cameras_data = {}
 
-        self.LIDAR_FRAME_ID = 'lidar_ouster_top'
+        self.LIDAR_FRAME_ID = 'lidar_top'
 
         self.get_cameras_calibration(cameras_info)
 

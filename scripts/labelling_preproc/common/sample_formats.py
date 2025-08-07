@@ -10,16 +10,27 @@ sensor_sequence_struct = {'name': '', 'task_type': '', 'attributes': {}}
 
 # Cameras' id list
 # Do not modify unless you know what you are doing!
-camera_ids_list = ['fsp_l', 'rsp_l', 'lspf_r', 'lspr_l', 'rspf_l', 'rspr_r']
+camera_ids_list = [
+    'fsp_l',
+    'fsp_r',
+    'rsp_l',
+    'rsp_r',
+    'lspf_r',
+    'lspr_l',
+    'rspf_l',
+    'rspr_r',
+]
 
 # Cameras' position in Segments.ai grid
 camera_grid_positions = {
     'fsp_l': {'row': 0, 'col': 1},
+    'fsp_r': {'row': 0, 'col': 2},
     'rsp_l': {'row': 1, 'col': 1},
+    'rsp_r': {'row': 1, 'col': 2},
     'lspf_r': {'row': 0, 'col': 0},
     'lspr_l': {'row': 1, 'col': 0},
-    'rspf_l': {'row': 0, 'col': 2},
-    'rspr_r': {'row': 1, 'col': 2},
+    'rspf_l': {'row': 0, 'col': 3},
+    'rspr_r': {'row': 1, 'col': 3},
 }
 
 # Image sample dictionary structure

@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 
 from labelling_preproc.common.ego_setup import EgoPoses
-from labelling_preproc.common.response import PreprocessingResponse
+from labelling_preproc.common.response import (
+    PreprocessingError,
+    PreprocessingResponse,
+)
 from labelling_preproc.common.sample_formats import (
     camera_ids_list,
     sensor_sequence_struct,
@@ -115,11 +118,16 @@ class SegmentsSampleCreator:
         [ok, msg] = ego_poses.validatePoseCount(len(sync_key_frames))
 
         if not ok:
-            raise ValueError(
-                'The number of poses is not equal to the number of key frames.'
+            msg = (
+                'The number of poses is not equal to the number of key frames'
                 f'\n{msg}\n'
             )
-
+            response = PreprocessingResponse(
+                ok=False,
+                error=PreprocessingError.InvalidPoseCountError,
+                error_message=msg,
+            )
+            return response
         # Initialise sensors' frames lists
         pointcloud_frames = []
         cameras_frames = {}

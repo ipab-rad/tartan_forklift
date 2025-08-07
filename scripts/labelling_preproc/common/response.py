@@ -15,6 +15,7 @@ class PreprocessingError(Enum):
     SegmentsAlreadyExistsError = 'SegmentsAlreadyExistsError'
     SegmentsTimeoutError = 'SegmentsTimeoutError'
     SegmentsUnknownError = 'SegmentsUnknownError'
+    InvalidPoseCountError = 'InvalidPoseCountError'
 
 
 @dataclass
