@@ -29,7 +29,8 @@ Add the following environment variables to `dataset_keys.env`:
 AWS_ACCESS_KEY_ID=my_access_key_id
 AWS_SECRET_ACCESS_KEY=my_secret_access_key
 AWS_ENDPOINT_URL=my_s3_organisation_url
-BUCKET_NAME=my_bucket_name
+AWS_BUCKET_NAME=my_bucket_name
+AWS_ROSBAG_BACKUP_BUCKET_NAME=my_backup_bucket_name
 EIDF_PROJECT_NAME=my_projectxyz
 
 # Segments.ai key
