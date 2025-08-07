@@ -2,30 +2,30 @@
  "format_version": "0.1",
  "categories": [
   {
-   "name": "object",
+   "name": "vehicle_bus",
    "id": 1,
    "color": [
-    0,
-    113,
-    188
+    255,
+    5,
+    80
    ],
    "attributes": [
     {
      "name": "position",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "dimensions",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "rotation",
-     "input_type": "quaternion",
      "is_mandatory": true,
+     "input_type": "quaternion",
      "is_track_level": false
     }
    ],
@@ -35,57 +35,27 @@
    "name": "vehicle_car",
    "id": 2,
    "color": [
-    216,
-    82,
-    24
+    0,
+    255,
+    157
    ],
    "attributes": [
     {
      "name": "position",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "dimensions",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "rotation",
+     "is_mandatory": true,
      "input_type": "quaternion",
-     "is_mandatory": true,
-     "is_track_level": false
-    }
-   ],
-   "link_attributes": []
-  },
-  {
-   "name": "vehicle_truck",
-   "id": 3,
-   "color": [
-    236,
-    176,
-    31
-   ],
-   "attributes": [
-    {
-     "name": "position",
-     "input_type": "vector3",
-     "is_mandatory": true,
-     "is_track_level": false
-    },
-    {
-     "name": "dimensions",
-     "input_type": "vector3",
-     "is_mandatory": true,
-     "is_track_level": false
-    },
-    {
-     "name": "rotation",
-     "input_type": "quaternion",
-     "is_mandatory": true,
      "is_track_level": false
     }
    ],
@@ -93,7 +63,7 @@
   },
   {
    "name": "vehicle_lorry",
-   "id": 4,
+   "id": 3,
    "color": [
     125,
     46,
@@ -102,28 +72,119 @@
    "attributes": [
     {
      "name": "position",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "dimensions",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "rotation",
-     "input_type": "quaternion",
      "is_mandatory": true,
+     "input_type": "quaternion",
      "is_track_level": false
     }
    ],
    "link_attributes": []
   },
   {
-   "name": "vehicle_van",
+   "name": "vehicle_taxi",
+   "id": 4,
+   "color": [
+    0,
+    0,
+    255
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "is_mandatory": true,
+     "input_type": "quaternion",
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_tram",
    "id": 5,
+   "color": [
+    190,
+    190,
+    0
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "is_mandatory": true,
+     "input_type": "quaternion",
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vehicle_truck",
+   "id": 6,
+   "color": [
+    236,
+    176,
+    31
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "is_mandatory": true,
+     "input_type": "quaternion",
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+
+  {
+   "name": "vehicle_van",
+   "id": 7,
    "color": [
     118,
     171,
@@ -132,32 +193,32 @@
    "attributes": [
     {
      "name": "position",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "dimensions",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "rotation",
-     "input_type": "quaternion",
      "is_mandatory": true,
+     "input_type": "quaternion",
      "is_track_level": false
     }
    ],
    "link_attributes": []
   },
   {
-   "name": "vehicle_bus",
-   "id": 6,
+   "name": "vru_animal",
+   "id": 8,
    "color": [
-    161,
-    19,
-    46
+    250,
+    254,
+    1
    ],
    "attributes": [
     {
@@ -182,8 +243,8 @@
    "link_attributes": []
   },
   {
-   "name": "vehicle_bicycle",
-   "id": 7,
+   "name": "vru_bicycle",
+   "id": 9,
    "color": [
     255,
     0,
@@ -192,122 +253,92 @@
    "attributes": [
     {
      "name": "position",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "dimensions",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "rotation",
-     "input_type": "quaternion",
      "is_mandatory": true,
+     "input_type": "quaternion",
      "is_track_level": false
     }
    ],
    "link_attributes": []
   },
   {
-   "name": "pedestrian",
-   "id": 8,
-   "color": [
-    255,
-    127,
-    0
-   ],
-   "attributes": [
-    {
-     "name": "position",
-     "input_type": "vector3",
-     "is_mandatory": true,
-     "is_track_level": false
-    },
-    {
-     "name": "dimensions",
-     "input_type": "vector3",
-     "is_mandatory": true,
-     "is_track_level": false
-    },
-    {
-     "name": "rotation",
-     "input_type": "quaternion",
-     "is_mandatory": true,
-     "is_track_level": false
-    }
-   ],
-   "link_attributes": []
-  },
-  {
-   "name": "vehicle_tram",
-   "id": 9,
-   "color": [
-    190,
-    190,
-    0
-   ],
-   "attributes": [
-    {
-     "name": "position",
-     "input_type": "vector3",
-     "is_mandatory": true,
-     "is_track_level": false
-    },
-    {
-     "name": "dimensions",
-     "input_type": "vector3",
-     "is_mandatory": true,
-     "is_track_level": false
-    },
-    {
-     "name": "rotation",
-     "input_type": "quaternion",
-     "is_mandatory": true,
-     "is_track_level": false
-    }
-   ],
-   "link_attributes": []
-  },
-  {
-   "name": "vehicle_taxi",
+   "name": "vru_pedestrian",
    "id": 10,
    "color": [
     0,
-    0,
-    255
+    255,
+    238
    ],
    "attributes": [
     {
      "name": "position",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "dimensions",
-     "input_type": "vector3",
      "is_mandatory": true,
+     "input_type": "vector3",
      "is_track_level": false
     },
     {
      "name": "rotation",
-     "input_type": "quaternion",
      "is_mandatory": true,
+     "input_type": "quaternion",
      "is_track_level": false
     }
    ],
    "link_attributes": []
   },
   {
+   "name": "vru_pram",
    "id": 11,
-   "name": "pram",
    "color": [
     170,
     0,
     255
+   ],
+   "attributes": [
+    {
+     "name": "position",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "dimensions",
+     "is_mandatory": true,
+     "input_type": "vector3",
+     "is_track_level": false
+    },
+    {
+     "name": "rotation",
+     "is_mandatory": true,
+     "input_type": "quaternion",
+     "is_track_level": false
+    }
+   ],
+   "link_attributes": []
+  },
+  {
+   "name": "vru_wheelchair",
+   "id": 12,
+   "color": [
+    242,
+    7,
+    223
    ],
    "attributes": [
     {
