@@ -243,28 +243,28 @@ def main() -> None:
     parser.add_argument(
         '--rosbags_directory',
         type=str,
-        required=True,
+        default='/opt/ros_ws/rosbags',
         help='Path to the directory to monitor for new rosbags.',
     )
 
     parser.add_argument(
         '--output_directory',
         type=str,
-        required=True,
+        default='/opt/ros_ws/exported_data',
         help='Parent directory to save exported data.',
     )
 
     parser.add_argument(
         '--export_config_file',
         type=str,
-        required=True,
+        default='/opt/ros_ws/config/av_sensor_export_config.yaml',
         help='Configuration file for the bag exporter',
     )
 
     parser.add_argument(
         '--dataset_attributes_file',
         type=str,
-        required=True,
+        default='/opt/ros_ws/config/dataset_attributes.json',
         help='Absolute path to the dataset attributes file.',
     )
     parser.add_argument(

@@ -335,7 +335,7 @@ def main():
     parser.add_argument(
         '--dataset_attributes_file',
         type=str,
-        required=True,
+        default='/opt/ros_ws/config/dataset_attributes.json',
         help='Absolute path to the dataset attributes file.',
     )
 
