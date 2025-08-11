@@ -1,11 +1,11 @@
 local_host_user: "lxo"
 local_hostname: "129.215.117.145"
-local_rosbags_directory: "/recorded_datasets/edinburgh"
+local_rosbags_directory: "/mnt/sata_ssd_raid/edinburgh"
 
 cloud_ssh_alias: "eidf-vm"
 cloud_user : ""
 cloud_hostname : ""
-cloud_upload_directory: "/mnt/vdb/test_bags"
+cloud_upload_directory: "/mnt/vdb/data"
 
 upload_attempts: 3
 mcap_bin_path: "/home/lxo/mcap"
