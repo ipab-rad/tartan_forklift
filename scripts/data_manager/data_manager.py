@@ -41,10 +41,11 @@ class DataManager:
         exporter_config_file: str,
         dataset_attributes_file: str,
         s3_organisation: str,
+        logs_directory: str,
         debug_mode: bool,
     ) -> None:
         """Initialise the DataManager and configure logging."""
-        self.logger = self.setup_logging(debug_mode=debug_mode)
+        self.logger = self.setup_logging(logs_directory, debug_mode)
         # Polling interval in seconds to check for new recordings.
         self.POLLING_INTERVAL_SEC = 1
         self.output_directory = output_directory
@@ -56,7 +57,9 @@ class DataManager:
         )
         self.s3_backup_agent = S3RosbagBackupAgent(self.logger)
 
-    def setup_logging(self, debug_mode: bool) -> logging.Logger:
+    def setup_logging(
+        self, logs_directory: str, debug_mode: bool
+    ) -> logging.Logger:
         """
         Configure logging with colour support and rotating file log.
 
@@ -68,6 +71,7 @@ class DataManager:
         """
         timestamp = datetime.now().strftime('%Y_%m_%d-%H_%M_%S')
         log_filename = f'{timestamp}_data_manager.log'
+        log_path = Path(logs_directory) / log_filename
 
         logger = logging.getLogger('data_manager')
         logger.setLevel(logging.DEBUG)
@@ -76,7 +80,7 @@ class DataManager:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
 
-        file_handler = logging.FileHandler(log_filename)
+        file_handler = logging.FileHandler(log_path)
         file_handler.setLevel(logging.DEBUG)
 
         color_formatter = colorlog.ColoredFormatter(
@@ -279,6 +283,12 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        '--logs_directory',
+        type=str,
+        default='/opt/ros_ws/logs_tartan_forklift',
+        help='Directory to save log files.',
+    )
+    parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable debug logging.',
@@ -290,6 +300,7 @@ def main() -> None:
     exporter_config_file = args.export_config_file
     dataset_attributes_file = args.dataset_attributes_file
     s3_organisation = args.s3_org
+    logs_directory = args.logs_directory
     debug_mode = args.debug
 
     data_manager = DataManager(
@@ -297,6 +308,7 @@ def main() -> None:
         exporter_config_file,
         dataset_attributes_file,
         s3_organisation,
+        logs_directory,
         debug_mode,
     )
 

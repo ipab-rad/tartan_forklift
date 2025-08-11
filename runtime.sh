@@ -120,11 +120,14 @@ if [ ! -f "$KEYS_FILE" ]; then
     exit 1
 fi
 
+mkdir -p $SCRIPT_DIR/logs
+
 # Run docker image
 docker run -it --rm --net host \
     --user "$(id -u):$(id -g)" \
     $CYCLONE_VOL \
     -v $KEYS_FILE:/keys/dataset_keys.env \
+    -v $SCRIPT_DIR/logs:/opt/ros_ws/logs_tartan_forklift \
     -v $EXPORTS_OUTPUT_DIR:/opt/ros_ws/exported_data \
     -v $ROSBAGS_DIR:/opt/ros_ws/rosbags \
     -v /etc/localtime:/etc/localtime:ro \
