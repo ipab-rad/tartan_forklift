@@ -123,11 +123,20 @@ class RosbagUploader:
             (file for file in base_path.rglob('*.mcap') if file.is_file()),
             key=order_based_on_sufix,
         )
+
+        # Filter mcap files that are in the temporary directory
+        # to avoid uploading already compressed files
+        filtered_mcap_files = [
+            mcap
+            for mcap in mcap_files
+            if self.temp_directory_name not in mcap.parts
+        ]
+
         return [
             Rosbag(
                 absolute_path=file.resolve(), size_bytes=file.stat().st_size
             )
-            for file in mcap_files
+            for file in filtered_mcap_files
         ]
 
     def resolve_remote_destination_path(
