@@ -19,7 +19,7 @@ To use the `labelling_preproc`'s modules to upload and add a **multi-sensor sequ
 Create a file named `dataset_keys.env` inside a `keys` directory in the parent directory of this repository:
 
 ```bash
-mkdir -p keys && touch keys/dataset_keys.env
+mkdir -p keys && touch .../tartan_forklift/keys/dataset_keys.env
 ```
 
 Add the following environment variables to `dataset_keys.env`:
@@ -319,3 +319,4 @@ The resulting merged `.mcap` file will be saved within the specified directory u
               └── 2024_10_24-14_15_33_haymarket_mapping.mcap # Larger file
       ...
 ```
+
