@@ -264,6 +264,9 @@ class DatasetCreator:
 
         export_sub_directory_list = self.sort_sub_directories(export_directory)
 
+        total_sequences = len(export_sub_directory_list)
+        sequences_created = 0
+        skipped_sequences = []
         # Iterate through sub-directories in the export directory
         # and create a Segments.ai sample for each
         for export_sub_directory in export_sub_directory_list:
@@ -284,8 +287,25 @@ class DatasetCreator:
             self.asset_uploader.run(export_sub_directory.resolve())
 
             # Create Segments.ai sample
-            self.create_sample(dataset_full_name, export_sub_directory)
+            if self.create_sample(dataset_full_name, export_sub_directory):
+                sequences_created += 1
+            else:
+                skipped_sequences.append(export_sub_directory)
 
+        if sequences_created == total_sequences:
+            self.logger.info(
+                f'[DatasetCreator] All {sequences_created} sequences created '
+                f'successfully for dataset "{dataset_full_name}"'
+            )
+        else:
+            # Convert skipped sequences to a string list
+            skipped_list_str = '\n'.join(str(p) for p in skipped_sequences)
+            self.logger.warning(
+                f'[DatasetCreator] Created '
+                f'{sequences_created}/{total_sequences}'
+                f' sequences for dataset "{dataset_full_name}"\n'
+                f'Skipped sequences:\n{skipped_list_str}'
+            )
         return dataset_full_name
 
 
@@ -315,7 +335,7 @@ def main():
     parser.add_argument(
         '--dataset_attributes_file',
         type=str,
-        required=True,
+        default='/opt/ros_ws/config/dataset_attributes.json',
         help='Absolute path to the dataset attributes file.',
     )
 

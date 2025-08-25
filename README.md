@@ -1,25 +1,51 @@
 # Tartan Forklift
 
-Collection of tools to manage ROSbag recordings data from AV vehicle.
+## Overview
 
-## Labelling preproc
+This repository contains all the modules required for the vehicle data uploading pipeline to the EIDF-VM, along with tools to convert uploaded recordings into Segments.ai datasets.
 
-This package contains different modules to read and parse exported ROS sensor data to create and prepare a dataset sample for the [Segments.ai](https://segments.ai/) platform for labelling.
+![Alt text](./docs/data_pipeline_diagram.jpg)
 
-Currently, the modules assume the following:
+The workflow begins with the **Rosbag Uploader**, which compresses and transfers ROS bag recordings from the vehicle’s storage to the EIDF-VM.
 
-  1. A ROS bag was exported using [ipab-rad/tartan_rosbag_exporter](https://github.com/ipab-rad/tartan_rosbag_exporter).
-  2. The user is familiar with Segments.ai platform and its sample formats, and has created a dataset with [multi-sensor sequence](https://docs.segments.ai/reference/sample-types#multi-sensor-sequence) support.
-  3. The user has access to both EIDF S3 and Segments.ai.
+Once uploaded, the **New Rosbag Watchdog** monitors the EIDF-VM storage and detects the arrival of new recordings. When a new ROS bag is found, the **ROS2 Bag Extractor** processes it, exporting its contents into system files such as images, point clouds, transformations, and calibration files.
 
-### Usage guide
+With the exported data ready, the **DatasetCreator** builds a Segments.ai dataset using both the processed files and the original ROS bag metadata. This stage includes:
+- **Trajectory Generator** – creates a trajectory for each point cloud in the recording and stores the trajectory points in `.tum` file.
+- **Data Uploader** – transfers the exported files to an S3 bucket for Segments.ai to access.
+- **S3 Backup Agent** – stores a backup of all newly processed ROS bag recordings in an S3 bucket.
 
-To use the `labelling_preproc`'s modules to upload and add a **multi-sensor sequence** to segments.ai, you will need access key tokens.
+This pipeline ensures that data collected from the vehicle is uploaded, processed, backed up, and prepared for use within the Segments.ai platform.
 
-Create a file named `dataset_keys.env` inside a `keys` directory in the parent directory of this repository:
+## Usage guide - Data Pipeline
+
+Requirements:
+
+  1. The user has access to EIDF virtual machine (EIDF-VM) SSD storage `/mnt/vdb/*` and S3
+  2. The user has access to Segments.ai platform
+  3. The user has defined a SSH alias for the EIDF-VM on vehicle's server
+      - Create an SSH alias in `~/.ssh/config` to access the EIDF-VM, if you haven't.
+        Add these two aliases to the `config` file and make sure to `User` points to your EIDF-VM username
+        ```bash
+        Host eidf-gateway
+          HostName eidf-gateway.epcc.ed.ac.uk
+          User <your_eidf_username>
+          IdentityFile ~/.ssh/id_ed25519
+
+        Host eidf-vm
+          HostName <eidf_ip>
+          User <your_eidf_username>
+          IdentityFile ~/.ssh/id_ed25519
+          ProxyJump eidf-gateway
+        ```
+      - See EIDF's [guide](https://docs.eidf.ac.uk/access/ssh/) for further reference
+
+Setup this repository by defining your access key tokens in a `dataset_keys.env` file. Create the file named inside a `keys` directory in the parent directory of this repository:
 
 ```bash
-mkdir -p keys && touch keys/dataset_keys.env
+cd <your_path>/tartan_forklift
+
+mkdir -p keys && touch ./keys/dataset_keys.env
 ```
 
 Add the following environment variables to `dataset_keys.env`:
@@ -29,23 +55,24 @@ Add the following environment variables to `dataset_keys.env`:
 AWS_ACCESS_KEY_ID=my_access_key_id
 AWS_SECRET_ACCESS_KEY=my_secret_access_key
 AWS_ENDPOINT_URL=my_s3_organisation_url
-BUCKET_NAME=my_bucket_name
+AWS_BUCKET_NAME=my_bucket_name
+AWS_ROSBAG_BACKUP_BUCKET_NAME=my_backup_bucket_name
 EIDF_PROJECT_NAME=my_projectxyz
 
 # Segments.ai key
 SEGMENTS_API_KEY=my_segment_ai_api_key
 ```
 
-The `dev.sh` script will attempt to locate the `dataset_keys.env` file. If the file is missing or incorrectly named, the script will throw an error. File and path names are case-sensitive.
+Both `dev.sh` and `runtime.sh`  scripts will attempt to locate the `dataset_keys.env` file. If the file is missing or incorrectly named, the script will throw an error. File and path names are case-sensitive.
 
 For access credentials, please contact [Hector Cruz](@hect95) or [Alejandro Bordallo](@GreatAlexander).
 
-#### Build and run the Docker container
+### Build and run the Docker container
 
 To build and run the Docker container interactively, use:
 
 ```bash
-./dev.sh -l -p <rosbags_directory> -o <exported_data_directory>
+./runtime.sh -l -p <rosbags_directory> -o <exported_data_directory>
 ```
 
 where:
@@ -55,17 +82,130 @@ where:
 
 The input directories will be mounted in `/opt/ros_ws/rosbags` and `/opt/ros_ws/exported_data` in the container respectively.
 
-After running the Docker container, install the Python modules:
+If running in dev mode `dev.sh`, install the Python modules after running the docker:
 
 ```bash
+./dev.sh -l -p <rosbags_directory> -o <exported_data_directory>
+
 pip install -e ./scripts
 ```
+### Run the Data pipeline
 
-#### Export your ROS bags
+#### 1. BEFORE YOU DO ANYTHING: Start the `data_manager`
 
-As mentioned above, the `labelling_preproc` modules expect exported data before creating a sample. You can export your rosbags with the following command:
+- Log in to the **EIDF-VM**.
+- Ensure you have set up the `tartan_forklift` keys as described in the [Usage guide](https://github.com/ipab-rad/tartan_forklift/tree/new-sensors-configuration?tab=readme-ov-file#usage-guide).
+- Use the **admin** S3 account keys and secret from the EIDF Project [dashboard](https://portal.eidf.ac.uk/project/view/eidf150).
+- Set `AWS_BUCKET_NAME` and `AWS_ROSBAG_BACKUP_BUCKET_NAME` environment variables in your `dataset_keys.env`  as described [here](https://github.com/ipab-rad/tartan_carpet/wiki/How-to-upload-rosbags-after-data-collection#1-before-you-do-anything-start-the-data_manager)
+
+Start the `data_manager`:
+```bash
+cd /your_path/tartan_forklift
+./runtime.sh data_manager
+```
+
+#### 2. Upload the rosbags
+
+- Log in to the vehicle's server.
+- Default upload sources:
+  - `/mnt/sata_ssd_raid/edinburgh` (vehicle server)
+  - `/mnt/vdb/data` (EIDF-VM)
+
+If you need a different location, update `upload_rosbags/upload_config.yaml`.
+
+Activate the Python environment:
+```bash
+source ~/python_default/bin/activate
+```
+
+Start the upload:
+```bash
+cd ~/tartan_forklift
+python3 -m upload_rosbags.upload_rosbags   --config ./upload_rosbags/upload_config.yaml   --lftp-password <lxo_user_password>
+```
+
+#### 3. What happens next
+
+When a rosbag recording is fully uploaded, the `data_manager` (on the EIDF-VM) detects it and automatically:
+- Creates a dataset in Segments.ai.
+- Backs up the rosbag to S3.
+
+
+### Run each module manually
+Each module was designed to run as a standalone script please pass the `--help` flag to each one of them to check its usage/arguments
+
+#### Upload rosbags
+
+This script automates the process of uploading rosbags from the IPAB-RAD autonomous vehicle server to a cloud instance within the [EIDF](https://edinburgh-international-data-facility.ed.ac.uk/) (Edinburgh International Data Facility) infrastructure. It streamlines data collection and transfer by first compressing the rosbags using the [MCAP CLI](https://mcap.dev/guides/cli), and then uploading the compressed files. This ensures efficient handling and storage of large datasets generated by vehicle sensors.
+
+**Dependencies**
+
+- **Vehicle machine (host)**
+
+  - Install Python dependencies:
+
+    ```bash
+    pip install colorlog paramiko paramiko_jump
+    ```
+
+  - Install MCAP CLI `v0.0.47` for rosbag compression:
+
+    ```bash
+    wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64
+    chmod +x $HOME/mcap
+    ```
+
+  - Set up an FTP server by following this [guide](https://documentation.ubuntu.com/server/how-to/networking/ftp/index.html)
+
+- ***EIDF (cloud)***
+
+  - Install `lftp`:
+    ```bash
+    sudo apt update && sudo apt install lftp
+    ```
+
+**Usage**
+
+To execute the script from the host machine, run:
 
 ```bash
+python3 -m upload_rosbags.upload_rosbags \
+  --config ./upload_rosbags/upload_config.yaml \
+  --lftp-password <host_user_password> \
+
+# Add --debug flag to set DEBUG log level
+```
+
+**YAML Parameters**
+
+The configuration file accepts the following parameters:
+
+- `local_host_user` (str): Username for the host machine.
+- `local_hostname` (str): IP address or hostname of the host machine (interface connected to the internet).
+- `local_rosbags_directory` (str): Path to the directory on the host machine containing the rosbags.
+- `cloud_ssh_alias` (str): SSH alias for the cloud server defined in `~/.ssh/config`. If unset, `cloud_user` and `cloud_hostname` must be provided.
+- `cloud_user` (str): Username for the cloud target machine. Ignored if `cloud_ssh_alias` is defined and valid.
+- `cloud_hostname` (str): Hostname or IP of the cloud target machine. Ignored if `cloud_ssh_alias` is defined and valid.
+- `cloud_upload_directory` (str): Destination directory on the cloud server for uploading compressed files.
+- `mcap_bin_path` (str): Full path to the `mcap` CLI binary.
+- `mcap_compression_chunk_size` (int): Chunk size in bytes used during MCAP compression.
+- `compression_parallel_workers` (int): Number of parallel worker threads for compression.
+- `compression_queue_max_size` (int): Maximum number of compressed rosbags allowed in the queue at any time.
+
+See [upload\_config.yaml](./upload_rosbags/upload_config.yaml) for a sample configuration.
+
+**Logging**
+
+The script logs its actions to a file named `<timestamp>_rosbag_upload.log`.
+
+
+#### Export ROS bags
+
+You can export your rosbags with the following command:
+
+```bash
+./runtime.sh bash
+
 cd /opt/ros_ws
 
 ros2 run ros2_bag_exporter bag_exporter --ros-args \
@@ -84,7 +224,18 @@ The exporter will create a directory inside `exported_data/`. This directory wil
 
 We'll refer to this directory as `<data_directory>`.
 
-#### Add a multi-sensor sequence sample
+#### Create a Dataset
+Export the ROSbag recording first and then run:
+
+```bash
+./runtime.sh bash
+
+dataset_creator --export_directory ./exported_data/<your_exported_directory> \
+    --recording_directory ./rosbags/<your_recording_directory> \
+    --dataset_attributes_file ./config/dataset_attributes.json
+```
+
+`dataset_creator` runs the following sub-modules in the background, but if for some reason you need to run each sub-module individually here is what you need to do:
 
 Create a new dataset on the Segments.ai platform if you haven't already. For consistency, name the dataset exactly the same as your exported `<data_directory>` directory. On Segments.ai, datasets follow the format `organisation_name/dataset_name`. Therefore, your full `dataset_name` should be `UniversityOfEdinburgh/<data_directory>_name`, where `UniversityOfEdinburgh` is the organisation name currently in use. This naming convention helps keep your exported data and Segments.ai datasets aligned.
 
@@ -127,127 +278,13 @@ Create a new dataset on the Segments.ai platform if you haven't already. For con
 
 If successful, you will see your new sequence listed in the _Samples_ tab on your dataset page.
 
-## Metadata Generator Usage
-
-This script generates metadata for ROSbag MCAP files. The metadata is compiled into a `resources.json` file that complies with the EIDF requirements
-
-### Features
-- Reads MCAP files and extracts metadata such as:
-  - Duration of the log
-  - Topics and message counts
-  - File size
-  - File hash (MD5)
-- Generates a JSON file (`resources.json`) with metadata for all MCAP files in a given directory.
-- Metadata includes:
-  - File name
-  - Identifier
-  - Description
-  - Format
-  - License
-  - Size
-  - Hash
-  - Issued date
-  - Modified date
-  - Duration
-  - Topics and message counts
-
-### Usage
-
-#### 1. Setup
-
-Ensure all dependencies are installed. You can use the following command to install required packages:
+#### Backup Rosbags
 
 ```bash
-pip install mcap
+./runtime.sh bash
+
+s3_backup_agent --recordings_list /opt/ros_ws/rosbags/2025_08_12-12_22_49_meadows
 ```
-
-#### 2. Running the Script
-
-To generate the metadata JSON file, follow these steps:
-
-- Place all your MCAP files in a directory.
-- The default directory is `/recorded_datasets/edinburgh`
-- Run the script:
-
-  ```bash
-  python metadata_generator.py
-  ```
-
-If you want to generate metadata for files in a specified path, run the script:
-
-```bash
-python metadata_generator.py -p path/to/file
-```
-
-#### 3. Output
-
-The script will generate a `resources.json` file in the specified directory. This JSON file will contain metadata for each MCAP file in the directory.
-
-## Upload rosbags
-
-This script automates the process of uploading rosbags from the IPAB-RAD autonomous vehicle server to a cloud instance within the [EIDF](https://edinburgh-international-data-facility.ed.ac.uk/) (Edinburgh International Data Facility) infrastructure. It streamlines data collection and transfer by first compressing the rosbags using the [MCAP CLI](https://mcap.dev/guides/cli), and then uploading the compressed files. This ensures efficient handling and storage of large datasets generated by vehicle sensors.
-
-### 1. Dependencies
-
-#### Vehicle machine (host)
-
-- Install Python dependencies:
-
-  ```bash
-  pip install colorlog paramiko paramiko_jump
-  ```
-
-- Install MCAP CLI `v0.0.47` for rosbag compression:
-
-  ```bash
-  wget -O $HOME/mcap https://github.com/foxglove/mcap/releases/download/releases%2Fmcap-cli%2Fv0.0.47/mcap-linux-amd64
-  chmod +x $HOME/mcap
-  ```
-
-- Set up an FTP server by following this [guide](https://documentation.ubuntu.com/server/how-to/networking/ftp/index.html)
-
-#### EIDF (cloud)
-
-- Install `lftp`:
-  ```bash
-  sudo apt update && sudo apt install lftp
-  ```
-
-### 2. Usage
-
-To execute the script from the host machine, run:
-
-```bash
-python3 -m upload_rosbags.upload_rosbags \
-  --config ./upload_rosbags/upload_config.yaml \
-  --lftp-password <host_user_password> \
-
-# Add --debug flag to set DEBUG log level
-```
-
-### 3. YAML Parameters
-
-The configuration file accepts the following parameters:
-
-- `local_host_user` (str): Username for the host machine.
-- `local_hostname` (str): IP address or hostname of the host machine (interface connected to the internet).
-- `local_rosbags_directory` (str): Path to the directory on the host machine containing the rosbags.
-- `cloud_ssh_alias` (str): SSH alias for the cloud server defined in `~/.ssh/config`. If unset, `cloud_user` and `cloud_hostname` must be provided.
-- `cloud_user` (str): Username for the cloud target machine. Ignored if `cloud_ssh_alias` is defined and valid.
-- `cloud_hostname` (str): Hostname or IP of the cloud target machine. Ignored if `cloud_ssh_alias` is defined and valid.
-- `cloud_upload_directory` (str): Destination directory on the cloud server for uploading compressed files.
-- `mcap_bin_path` (str): Full path to the `mcap` CLI binary.
-- `mcap_compression_chunk_size` (int): Chunk size in bytes used during MCAP compression.
-- `compression_parallel_workers` (int): Number of parallel worker threads for compression.
-- `compression_queue_max_size` (int): Maximum number of compressed rosbags allowed in the queue at any time.
-
-See [upload\_config.yaml](./upload_rosbags/upload_config.yaml) for a sample configuration.
-
-### 4. Logging
-
-The script logs its actions to a file named `<timestamp>_rosbag_upload.log`.
-
-
 
 ## ROS2 Bag Merging Script
 

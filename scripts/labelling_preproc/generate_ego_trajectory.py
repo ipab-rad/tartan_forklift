@@ -59,8 +59,12 @@ class EgoTrajectoryGenerator:
         cmd = (
             # Avoid relying on the lidar -> base_link transform
             'export MOLA_USE_FIXED_LIDAR_POSE=true && '
+            'export MOLA_IMU_NAME=/sensor/imu/front/data && '
             # Ensure a pose is generated for every lidar frame
             'export MOLA_MIN_XYZ_BETWEEN_MAP_UPDATES=0.0001 && '
+            'export MOLA_MIN_ROT_BETWEEN_MAP_UPDATES=0.0001 && '
+            'export MOLA_MINIMUM_ICP_QUALITY=0.1 && '
+            'export MOLA_MAP_CLOUD_DECIMATION=0.005 && '
             'mola-lidar-odometry-cli '
             f'-c {mola_config_path} '
             f'--input-rosbag2 {rosbag_path} '
